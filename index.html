@@ -1024,6 +1024,13 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
     </div>
     <div class="modal-body">
       <input type="hidden" id="mbs-id">
+      <input type="hidden" id="mbs-source-id">
+      <div id="mbs-import-section" style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Importer depuis un bien existant <span style="font-weight:400;color:var(--text-muted);">(optionnel)</span></div>
+        <select class="form-control" id="mbs-import-bien" onchange="importerDepuisBien()">
+          <option value="">— Sélectionner un bien à importer —</option>
+        </select>
+      </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Référence</label><input class="form-control" id="mbs-ref" placeholder="VS001"></div>
         <div class="form-group"><label class="form-label">Type</label>
@@ -1786,11 +1793,13 @@ function renderBiens(){
 }
 function renderBiensGrid(biens){
   const contrats=DB.get('contrats').filter(c=>c.statut==='actif');
+  const linked=getBiensSaisonLinked();
   document.getElementById('biens-grid').innerHTML=biens.length?biens.map(b=>{
     const c=contrats.find(x=>x.bienId===b.id);
     const loc=c?getLoc(c.locataireId):null;
+    const isSaison=b.mode==='saisonnier'||linked.has(b.id);
     return`<div class="bien-card">
-      <div class="bien-ref">${b.ref} · ${b.type}</div>
+      <div class="bien-ref">${b.ref} · ${b.type}${isSaison?` <span class="badge" style="background:rgba(46,111,217,.18);color:var(--blue-bright);font-size:10px;padding:2px 7px;vertical-align:middle;">Saisonnier</span>`:''}</div>
       <div class="bien-name">${b.nom}</div>
       <div class="bien-addr">${b.adresse}, ${b.ville} ${b.cp}</div>
       ${b.proprietaireId?`<div style="font-size:11px;color:var(--blue-bright);margin-bottom:4px;">Propriétaire : ${propName(getProp(b.proprietaireId))}</div>`:'<div style="font-size:11px;color:var(--warning);margin-bottom:4px;">Aucun propriétaire affecté</div>'}
@@ -1802,8 +1811,9 @@ function renderBiensGrid(biens){
       ${c?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Loyer CC : <strong style="color:var(--white);">${fmtE(c.loyer+c.charges)}/mois</strong></div>`:''}
       <div class="bien-footer">
         <div>${loc?`<div style="font-size:12px;color:var(--text-secondary);">Loc: <strong style="color:var(--white);">${locName(loc)}</strong></div>`:`<span class="badge badge-muted">Vacant</span>`}</div>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <span class="badge badge-${b.statut==='loue'?'success':'warning'}">${b.statut==='loue'?'Loué':'Vacant'}</span>
+          ${!isSaison?`<button class="btn btn-secondary btn-sm" onclick="activerEnSaisonnier(${b.id})" title="Activer en location saisonnière">Saisonnier</button>`:''}
           <button class="btn btn-secondary btn-sm" onclick="ouvrirRentabilite(${b.id})">Rentabilité</button>
           <button class="btn btn-ghost btn-sm" onclick="editBien(${b.id})">Éditer</button>
           <button class="btn btn-danger btn-sm" onclick="deleteBien(${b.id})">×</button>
@@ -1832,10 +1842,17 @@ function openContratModal(){
 }
 function openBienSaisonModal(){
   document.getElementById('mbs-id').value='';
-  document.getElementById('mbs-title') && (document.getElementById('mbs-title').textContent='Nouveau bien');
+  document.getElementById('mbs-source-id').value='';
+  document.getElementById('mbs-title') && (document.getElementById('mbs-title').textContent='Nouveau bien saisonnier');
   ['ref','type','nom','adresse','ville','cp','capacite','chambres','sdb','equip_libre','reglement','notes'].forEach(f=>{const el=document.getElementById('mbs-'+f);if(el)el.value='';});
   ['tarif-basse','tarif-moyenne','tarif-haute','tarif-sem-basse','tarif-sem-moyenne','tarif-sem-haute','caution','menage'].forEach(f=>{const el=document.getElementById('mbs-'+f);if(el)el.value='';});
   ['wifi','piscine','parking','climatisation','terrasse','barbecue','lave_linge','lave_vaisselle','animaux','fumeurs_non','jacuzzi','vue_mer'].forEach(o=>{const el=document.getElementById('mbs-opt-'+o);if(el)el.checked=false;});
+  // Peupler le dropdown d'import avec les biens non encore activés en saisonnier
+  const linked=getBiensSaisonLinked();
+  const biens=(DB.get('biens')||[]).filter(b=>!linked.has(b.id));
+  const sel=document.getElementById('mbs-import-bien');
+  sel.innerHTML='<option value="">— Sélectionner un bien à importer —</option>'+biens.map(b=>`<option value="${b.id}">${b.ref} — ${b.nom} (${b.ville})</option>`).join('');
+  document.getElementById('mbs-import-section').style.display=biens.length?'block':'none';
   openModal('modal-bien-saison');
 }
 function openTransactionModal(){
@@ -3860,8 +3877,9 @@ function renderBiensSaison(){
       </div>
       ${prochaine?`<div style="font-size:11px;color:var(--blue-bright);margin-bottom:8px;">Prochaine rés. : ${fmtDate(prochaine.arrivee)} (${prochaine.client_prenom} ${prochaine.client_nom})</div>`:''}
       <div class="bien-footer">
-        <div></div>
+        <div>${b.bienSourceId?`<span class="badge" style="background:rgba(46,111,217,.15);color:var(--blue-bright);font-size:10px;padding:2px 7px;">Lié au parc</span>`:''}</div>
         <div style="display:flex;gap:6px;">
+          ${b.bienSourceId?`<button class="btn btn-secondary btn-sm" onclick="desactiverSaisonnier(${b.id})" title="Réactiver en longue durée">Longue durée</button>`:''}
           <button class="btn btn-ghost btn-sm" onclick="editBienSaison(${b.id})">Éditer</button>
           <button class="btn btn-danger btn-sm" onclick="deleteBienSaison(${b.id})">×</button>
         </div>
@@ -3875,8 +3893,14 @@ function saveBienSaison(){
   const opts=['wifi','piscine','parking','climatisation','terrasse','barbecue','lave_linge','lave_vaisselle','animaux','fumeurs_non','jacuzzi','vue_mer'];
   const obj={ref:document.getElementById('mbs-ref').value,type:document.getElementById('mbs-type').value,nom:document.getElementById('mbs-nom').value,adresse:document.getElementById('mbs-adresse').value,ville:document.getElementById('mbs-ville').value,cp:document.getElementById('mbs-cp').value,capacite:+document.getElementById('mbs-capacite').value,chambres:+document.getElementById('mbs-chambres').value,sdb:+document.getElementById('mbs-sdb').value,tarif_basse:+document.getElementById('mbs-tarif-basse').value,tarif_moyenne:+document.getElementById('mbs-tarif-moyenne').value,tarif_haute:+document.getElementById('mbs-tarif-haute').value,tarif_sem_basse:+document.getElementById('mbs-tarif-sem-basse').value,tarif_sem_moyenne:+document.getElementById('mbs-tarif-sem-moyenne').value,tarif_sem_haute:+document.getElementById('mbs-tarif-sem-haute').value,caution:+document.getElementById('mbs-caution').value,menage:+document.getElementById('mbs-menage').value,equip_libre:document.getElementById('mbs-equip-libre').value,reglement:document.getElementById('mbs-reglement').value,notes:document.getElementById('mbs-notes').value};
   opts.forEach(o=>{obj[o]=document.getElementById('mbs-opt-'+o)?.checked||false;});
+  const srcId=+document.getElementById('mbs-source-id').value||0;
+  if(srcId)obj.bienSourceId=srcId;
   if(id){const i=bs.findIndex(b=>b.id===+id);if(i>=0){obj.id=+id;bs[i]=obj;}}else{obj.id=bs.length?(Math.max(...bs.map(b=>b.id))+1):1;bs.push(obj);}
-  DB.set('biens_saison',bs);closeModal('modal-bien-saison');populateBienSaisonSelects();renderBiensSaison();
+  DB.set('biens_saison',bs);
+  // Marquer le bien source comme saisonnier actif
+  if(srcId){const biens=DB.get('biens')||[];const bi=biens.findIndex(b=>b.id===srcId);if(bi>=0){biens[bi].mode='saisonnier';DB.set('biens',biens);}}
+  closeModal('modal-bien-saison');populateBienSaisonSelects();renderBiensSaison();
+  if(document.getElementById('section-biens')?.style.display!=='none')renderBiens();
 }
 function editBienSaison(id){
   const b=getBienS(id);if(!b)return;
@@ -3886,8 +3910,87 @@ function editBienSaison(id){
   ['wifi','piscine','parking','climatisation','terrasse','barbecue','lave_linge','lave_vaisselle','animaux','fumeurs_non','jacuzzi','vue_mer'].forEach(o=>{const el=document.getElementById('mbs-opt-'+o);if(el)el.checked=!!b[o];});
   openModal('modal-bien-saison');
 }
-function deleteBienSaison(id){if(!confirm('Supprimer ce bien ?'))return;DB.set('biens_saison',(DB.get('biens_saison')||[]).filter(b=>b.id!==id));renderBiensSaison();}
+function deleteBienSaison(id){
+  if(!confirm('Supprimer ce bien saisonnier ?'))return;
+  const bs=(DB.get('biens_saison')||[]).find(b=>b.id===id);
+  if(bs?.bienSourceId){const biens=DB.get('biens')||[];const i=biens.findIndex(b=>b.id===bs.bienSourceId);if(i>=0){delete biens[i].mode;DB.set('biens',biens);}}
+  DB.set('biens_saison',(DB.get('biens_saison')||[]).filter(b=>b.id!==id));
+  populateBienSaisonSelects();renderBiensSaison();
+  if(document.getElementById('section-biens')?.style.display!=='none')renderBiens();
+}
 function autofillCpSaison(){const v=document.getElementById('mbs-ville').value.trim();const cp=MQ_COMMUNES[v];if(cp)document.getElementById('mbs-cp').value=cp;}
+
+// ── GESTION MODE BIEN (standard ↔ saisonnier) ────────────────────────────
+function getBiensSaisonLinked(){
+  // Retourne un Set des bienSourceId déjà activés en saisonnier
+  return new Set((DB.get('biens_saison')||[]).filter(b=>b.bienSourceId).map(b=>b.bienSourceId));
+}
+function activerEnSaisonnier(bienId){
+  // Ouvre le modal saisonnier pré-rempli depuis le bien standard
+  const b=(DB.get('biens')||[]).find(x=>x.id===bienId);if(!b)return;
+  openBienSaisonModal();
+  document.getElementById('mbs-source-id').value=bienId;
+  // Pré-remplir les champs communs
+  document.getElementById('mbs-ref').value=b.ref||'';
+  const typeMap={appartement:'Appartement',maison:'Maison',studio:'Studio',villa:'Villa',local:'Villa',parking:''};
+  const typeEl=document.getElementById('mbs-type');
+  const mapped=typeMap[b.type?.toLowerCase()]||'';
+  if(mapped){for(let i=0;i<typeEl.options.length;i++){if(typeEl.options[i].value===mapped){typeEl.selectedIndex=i;break;}}}
+  document.getElementById('mbs-nom').value=b.nom||'';
+  document.getElementById('mbs-adresse').value=b.adresse||'';
+  document.getElementById('mbs-ville').value=b.ville||'';
+  document.getElementById('mbs-cp').value=b.cp||'';
+  // Marquer la source dans le select import
+  const sel=document.getElementById('mbs-import-bien');
+  for(let i=0;i<sel.options.length;i++){if(+sel.options[i].value===bienId){sel.selectedIndex=i;break;}}
+  document.getElementById('mbs-title').textContent='Activer en location saisonnière';
+}
+function importerDepuisBien(){
+  const bienId=+document.getElementById('mbs-import-bien').value;
+  if(!bienId)return;
+  document.getElementById('mbs-source-id').value=bienId;
+  activerEnSaisonnier(bienId);
+}
+function desactiverSaisonnier(bienSaisonId){
+  const bs=(DB.get('biens_saison')||[]).find(b=>b.id===bienSaisonId);if(!bs)return;
+  const nom=bs.nom||('Bien #'+bienSaisonId);
+  document.getElementById('mode-bien-saison-id').value=bienSaisonId;
+  document.getElementById('mode-bien-source-id').value=bs.bienSourceId||'';
+  document.getElementById('mode-bien-title').textContent='Réactiver « '+nom+' »';
+  const hasSrc=bs.bienSourceId&&(DB.get('biens')||[]).find(b=>b.id===bs.bienSourceId);
+  document.getElementById('mode-bien-sub').textContent=hasSrc
+    ?'Ce bien saisonnier sera désactivé. Choisissez son nouveau mode de location longue durée.'
+    :'Ce bien sera retiré du module saisonnier. Choisissez son mode de location longue durée (une nouvelle fiche sera créée).';
+  document.querySelectorAll('input[name="mode-bien-type"]').forEach(r=>r.checked=false);
+  document.getElementById('mode-bien-error').style.display='none';
+  document.getElementById('modal-mode-bien').style.display='flex';
+}
+function confirmerModeBien(){
+  const sel=document.querySelector('input[name="mode-bien-type"]:checked');
+  if(!sel){document.getElementById('mode-bien-error').style.display='block';return;}
+  document.getElementById('mode-bien-error').style.display='none';
+  const bienSaisonId=+document.getElementById('mode-bien-saison-id').value;
+  const bienSourceId=+document.getElementById('mode-bien-source-id').value||0;
+  const meuble=sel.value==='meuble';
+  // Supprimer le bien saisonnier
+  DB.set('biens_saison',(DB.get('biens_saison')||[]).filter(b=>b.id!==bienSaisonId));
+  if(bienSourceId){
+    // Mettre à jour le bien source existant
+    const biens=DB.get('biens')||[];
+    const idx=biens.findIndex(b=>b.id===bienSourceId);
+    if(idx>=0){biens[idx].mode='standard';biens[idx].meuble=meuble;DB.set('biens',biens);}
+  } else {
+    // Créer un nouveau bien depuis les données saisonnières (cas rare)
+    const bs=(DB.get('biens_saison')||[]).find(b=>b.id===bienSaisonId)||{};
+    const biens=DB.get('biens')||[];
+    const newId=biens.length?Math.max(...biens.map(b=>b.id))+1:1;
+    biens.push({id:newId,ref:bs.ref||'B'+newId,type:bs.type||'Appartement',nom:bs.nom||'',adresse:bs.adresse||'',ville:bs.ville||'',cp:bs.cp||'',surface:0,pieces:bs.chambres||1,valeur:0,loyer:0,charges:0,meuble,statut:'vacant',mode:'standard',notes:bs.notes||''});
+    DB.set('biens',biens);
+  }
+  document.getElementById('modal-mode-bien').style.display='none';
+  populateBienSaisonSelects();renderBiensSaison();
+  if(document.getElementById('section-biens')?.style.display!=='none')renderBiens();
+}
 
 // --- RESERVATIONS ---
 function renderReservations(){
@@ -4458,6 +4561,39 @@ init();
     </div>
     <div id="force-pwd-error" style="display:none;color:var(--danger);font-size:12px;margin-bottom:14px;padding:8px 12px;background:rgba(220,53,69,0.1);border-radius:6px;border:1px solid rgba(220,53,69,0.3);"></div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;" onclick="saveNewPwd()">Enregistrer et accéder à l'application</button>
+  </div>
+</div>
+
+<!-- ── MODAL CHANGEMENT DE MODE BIEN ─────────────────────────── -->
+<div id="modal-mode-bien" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.80);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:var(--navy-deep);border:1px solid var(--border);border-radius:12px;padding:36px;width:420px;max-width:95vw;">
+    <input type="hidden" id="mode-bien-saison-id">
+    <input type="hidden" id="mode-bien-source-id">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:18px;font-weight:700;color:var(--white);margin-bottom:8px;" id="mode-bien-title">Réactiver ce bien</div>
+      <div style="font-size:13px;color:var(--text-muted);" id="mode-bien-sub">Choisissez le mode de location pour ce bien.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+      <label style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--navy);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='var(--blue-accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <input type="radio" name="mode-bien-type" value="meuble" style="accent-color:var(--blue-accent);width:16px;height:16px;">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--white);">Location meublée</div>
+          <div style="font-size:12px;color:var(--text-muted);">Régime LMNP / Micro-BIC</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--navy);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='var(--blue-accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <input type="radio" name="mode-bien-type" value="non_meuble" style="accent-color:var(--blue-accent);width:16px;height:16px;">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--white);">Location non meublée</div>
+          <div style="font-size:12px;color:var(--text-muted);">Régime foncier / Micro-foncier</div>
+        </div>
+      </label>
+    </div>
+    <div id="mode-bien-error" style="display:none;color:var(--danger);font-size:12px;margin-bottom:14px;padding:8px 12px;background:rgba(220,53,69,0.1);border-radius:6px;border:1px solid rgba(220,53,69,0.3);">Veuillez sélectionner un type de location.</div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary" style="flex:1;justify-content:center;" onclick="document.getElementById('modal-mode-bien').style.display='none'">Annuler</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="confirmerModeBien()">Confirmer</button>
+    </div>
   </div>
 </div>
 
