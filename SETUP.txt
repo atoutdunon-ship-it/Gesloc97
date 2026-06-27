@@ -1,0 +1,84 @@
+GESLOC97 — Déploiement GitHub Pages
+=====================================
+
+PRÉREQUIS
+---------
+- Git installé sur votre Mac  →  https://git-scm.com
+- Un compte GitHub            →  https://github.com
+
+
+ÉTAPE 1 — Créer le dépôt sur GitHub
+--------------------------------------
+1. Connectez-vous sur github.com
+2. Cliquez "New repository" (bouton vert en haut à droite)
+3. Nom du dépôt   : gesloc97
+4. Visibilité     : Private  (recommandé — données sensibles)
+5. NE PAS cocher "Add a README"
+6. Cliquez "Create repository"
+7. Copiez l'URL affichée, ex :
+   https://github.com/VOTRE-COMPTE/gesloc97.git
+
+
+ÉTAPE 2 — Initialiser et pousser depuis votre Terminal
+--------------------------------------------------------
+Ouvrez Terminal, puis exécutez ces commandes une par une :
+
+  cd ~/COWORK/GESLOC97
+
+  # Supprimer le .git créé par l'outil (permissions insuffisantes)
+  rm -rf .git
+
+  # Initialiser le dépôt
+  git init
+  git branch -M main
+
+  # Lier à votre dépôt GitHub
+  git remote add origin https://github.com/VOTRE-COMPTE/gesloc97.git
+
+  # Premier commit
+  git add -A
+  git commit -m "Initial commit — GESLOC97 v1.0"
+  git push -u origin main
+
+
+ÉTAPE 3 — Activer GitHub Pages
+--------------------------------
+1. Sur votre dépôt GitHub, cliquez "Settings"
+2. Menu gauche → "Pages"
+3. Source       : "Deploy from a branch"
+4. Branch       : main / (root)
+5. Cliquez "Save"
+
+Votre application sera disponible après 1 à 2 minutes sur :
+→  https://VOTRE-COMPTE.github.io/gesloc97
+
+
+MISES À JOUR FUTURES
+---------------------
+À chaque modification de GESLOC97.html, depuis Terminal :
+
+  cd ~/COWORK/GESLOC97
+  ./deploy.sh "Description de la modification"
+
+Ou manuellement :
+
+  cp GESLOC97.html index.html
+  git add -A
+  git commit -m "Mise à jour"
+  git push
+
+
+CONTENU DU DOSSIER
+-------------------
+GESLOC97.html   →  Application principale (fichier de travail)
+index.html      →  Point d'entrée GitHub Pages (copie de GESLOC97.html)
+.gitignore      →  Fichiers exclus du dépôt
+deploy.sh       →  Script de déploiement en une commande
+SETUP.txt       →  Ce fichier
+
+
+NOTE IMPORTANTE
+---------------
+Les données sont stockées dans le localStorage du navigateur.
+Elles ne sont PAS synchronisées entre appareils via GitHub.
+Chaque navigateur a ses propres données locales.
