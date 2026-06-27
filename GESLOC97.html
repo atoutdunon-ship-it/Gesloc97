@@ -222,9 +222,6 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;" onclick="doLogin()">Se connecter</button>
-      <div style="margin-top:16px;text-align:center;font-size:12px;color:var(--text-muted);">
-        Première connexion : <strong style="color:var(--text-secondary);">admin</strong> / <strong style="color:var(--text-secondary);">admin97</strong>
-      </div>
     </div>
     <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-muted);">GESLOC97 v1.0 · Données stockées localement · Martinique (972)</div>
   </div>
@@ -1597,7 +1594,7 @@ const AUTH = {
   logout(){this.clearSession();location.reload();},
   seedAdmin(){
     if(this.getUsers().length)return;
-    this.setUsers([{id:1,username:'admin',pwdHash:this.hash('admin97'),role:'admin',nom:'Administrateur',email:'admin@gesloc97.mq',createdAt:new Date().toISOString()}]);
+    this.setUsers([{id:1,username:'admin',pwdHash:this.hash('admin97'),role:'admin',nom:'Administrateur',email:'admin@gesloc97.mq',createdAt:new Date().toISOString(),mustChangePassword:true}]);
   }
 };
 
@@ -4352,14 +4349,43 @@ function doLogin(){
   const username=document.getElementById('login-username').value.trim();
   const password=document.getElementById('login-password').value;
   if(AUTH.login(username,password)){
-    document.getElementById('login-screen').style.display='none';
     document.getElementById('login-error').style.display='none';
-    initApp();
+    // Vérifier si l'utilisateur doit changer son mot de passe
+    const users=AUTH.getUsers();
+    const u=users.find(x=>x.username.toLowerCase()===username.toLowerCase());
+    if(u&&u.mustChangePassword){
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('modal-force-pwd').style.display='flex';
+      document.getElementById('force-pwd-username').textContent=username;
+      document.getElementById('force-pwd-new').value='';
+      document.getElementById('force-pwd-confirm').value='';
+      document.getElementById('force-pwd-error').style.display='none';
+      setTimeout(()=>document.getElementById('force-pwd-new').focus(),100);
+    } else {
+      document.getElementById('login-screen').style.display='none';
+      initApp();
+    }
   } else {
     document.getElementById('login-error').style.display='block';
     document.getElementById('login-password').value='';
     document.getElementById('login-password').focus();
   }
+}
+function saveNewPwd(){
+  const np=document.getElementById('force-pwd-new').value;
+  const nc=document.getElementById('force-pwd-confirm').value;
+  const err=document.getElementById('force-pwd-error');
+  if(np.length<8){err.textContent='Le mot de passe doit contenir au moins 8 caractères.';err.style.display='block';return;}
+  if(np!==nc){err.textContent='Les mots de passe ne correspondent pas.';err.style.display='block';return;}
+  const u=AUTH.currentUser();
+  const users=AUTH.getUsers();
+  const i=users.findIndex(x=>x.id===u.id);
+  if(i<0)return;
+  users[i].pwdHash=AUTH.hash(np);
+  delete users[i].mustChangePassword;
+  AUTH.setUsers(users);
+  document.getElementById('modal-force-pwd').style.display='none';
+  initApp();
 }
 function togglePwd(){
   const f=document.getElementById('login-password');
@@ -4414,5 +4440,26 @@ function init(){
 }
 init();
 </script>
+
+<!-- MODAL CHANGEMENT MOT DE PASSE OBLIGATOIRE (première connexion) -->
+<div id="modal-force-pwd" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:var(--navy-deep);border:1px solid var(--border);border-radius:12px;padding:40px;width:440px;max-width:95vw;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:22px;font-weight:700;color:var(--white);margin-bottom:8px;">Sécurisez votre accès</div>
+      <div style="font-size:13px;color:var(--text-muted);">Première connexion détectée pour <strong id="force-pwd-username" style="color:var(--text-secondary);"></strong>.<br>Vous devez définir un nouveau mot de passe pour continuer.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nouveau mot de passe <span style="color:var(--text-muted);font-weight:400;">(8 caractères minimum)</span></label>
+      <input class="form-control" type="password" id="force-pwd-new" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter')document.getElementById('force-pwd-confirm').focus()">
+    </div>
+    <div class="form-group" style="margin-bottom:20px;">
+      <label class="form-label">Confirmer le mot de passe</label>
+      <input class="form-control" type="password" id="force-pwd-confirm" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter')saveNewPwd()">
+    </div>
+    <div id="force-pwd-error" style="display:none;color:var(--danger);font-size:12px;margin-bottom:14px;padding:8px 12px;background:rgba(220,53,69,0.1);border-radius:6px;border:1px solid rgba(220,53,69,0.3);"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;" onclick="saveNewPwd()">Enregistrer et accéder à l'application</button>
+  </div>
+</div>
+
 </body>
 </html>
