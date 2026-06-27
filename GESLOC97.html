@@ -412,6 +412,7 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
         <div class="tab" data-saison-tab="calendrier" onclick="switchSaisonTab('calendrier')">Calendrier</div>
         <div class="tab" data-saison-tab="inventaire" onclick="switchSaisonTab('inventaire')">Inventaire équipements</div>
         <div class="tab" data-saison-tab="tarifs" onclick="switchSaisonTab('tarifs')">Grille tarifaire</div>
+        <div class="tab" data-saison-tab="canaux" onclick="switchSaisonTab('canaux')">Canaux de distribution</div>
       </div>
 
       <!-- TAB: BIENS SAISONNIERS -->
@@ -491,6 +492,26 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
           <button class="btn btn-primary" onclick="openModal('modal-saison-config')">Configurer les saisons</button>
         </div>
         <div id="tarif-container"></div>
+      </div>
+
+      <!-- TAB: CANAUX DE DISTRIBUTION -->
+      <div id="stab-canaux" style="display:none;">
+        <!-- Bandeau info -->
+        <div style="background:rgba(46,111,217,.08);border:1px solid rgba(46,111,217,.25);border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:var(--text-secondary);line-height:1.6;">
+          <strong style="color:var(--white);">Synchronisation via iCal</strong> — Collez l'URL iCal de chaque plateforme pour importer vos réservations. Pour l'export, téléchargez le fichier .ics depuis chaque bien et uploadez-le sur la plateforme.
+          La synchronisation utilise un proxy CORS public (<code style="color:var(--blue-bright);">allorigins.win</code>). Si votre connexion refuse ce domaine, utilisez l'import CSV.
+        </div>
+        <!-- Actions -->
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="openCanalModal()">+ Nouveau canal</button>
+        </div>
+        <!-- Grille canaux -->
+        <div id="canaux-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
+        <!-- Section export iCal par bien -->
+        <div style="margin-top:32px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Export iCal — Bloquer les dates sur les plateformes</div>
+          <div id="canaux-export-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;"></div>
+        </div>
       </div>
     </div>
 
@@ -1814,6 +1835,7 @@ function renderBiensGrid(biens){
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <span class="badge badge-${b.statut==='loue'?'success':'warning'}">${b.statut==='loue'?'Loué':'Vacant'}</span>
           ${!isSaison?`<button class="btn btn-secondary btn-sm" onclick="activerEnSaisonnier(${b.id})" title="Activer en location saisonnière">Saisonnier</button>`:''}
+          <button class="btn btn-secondary btn-sm" onclick="openPhotosModal(${b.id},'standard')">${photosBtnLabel(b.id,'standard')}</button>
           <button class="btn btn-secondary btn-sm" onclick="ouvrirRentabilite(${b.id})">Rentabilité</button>
           <button class="btn btn-ghost btn-sm" onclick="editBien(${b.id})">Éditer</button>
           <button class="btn btn-danger btn-sm" onclick="deleteBien(${b.id})">×</button>
@@ -3841,12 +3863,13 @@ function renderSaisonnier(){
 
 function switchSaisonTab(tab){
   document.querySelectorAll('[data-saison-tab]').forEach(t=>t.classList.toggle('active',t.dataset.saisonTab===tab));
-  ['biens','reservations','calendrier','inventaire','tarifs'].forEach(t=>document.getElementById('stab-'+t).style.display=t===tab?'block':'none');
+  ['biens','reservations','calendrier','inventaire','tarifs','canaux'].forEach(t=>{const el=document.getElementById('stab-'+t);if(el)el.style.display=t===tab?'block':'none';});
   if(tab==='biens')renderBiensSaison();
   if(tab==='reservations')renderReservations();
   if(tab==='calendrier')renderCalendrier();
   if(tab==='inventaire')renderInventaire();
   if(tab==='tarifs')renderTarifs();
+  if(tab==='canaux')renderCanaux();
 }
 
 // --- BIENS ---
@@ -3880,6 +3903,7 @@ function renderBiensSaison(){
         <div>${b.bienSourceId?`<span class="badge" style="background:rgba(46,111,217,.15);color:var(--blue-bright);font-size:10px;padding:2px 7px;">Lié au parc</span>`:''}</div>
         <div style="display:flex;gap:6px;">
           ${b.bienSourceId?`<button class="btn btn-secondary btn-sm" onclick="desactiverSaisonnier(${b.id})" title="Réactiver en longue durée">Longue durée</button>`:''}
+          <button class="btn btn-secondary btn-sm" onclick="openPhotosModal(${b.id},'saison')">${photosBtnLabel(b.id,'saison')}</button>
           <button class="btn btn-ghost btn-sm" onclick="editBienSaison(${b.id})">Éditer</button>
           <button class="btn btn-danger btn-sm" onclick="deleteBienSaison(${b.id})">×</button>
         </div>
@@ -3990,6 +4014,424 @@ function confirmerModeBien(){
   document.getElementById('modal-mode-bien').style.display='none';
   populateBienSaisonSelects();renderBiensSaison();
   if(document.getElementById('section-biens')?.style.display!=='none')renderBiens();
+}
+
+// ── MODULE PHOTOS ─────────────────────────────────────────────────────────
+function photosBtnLabel(bienId,bienType){const n=(DB.get('photos')||[]).filter(p=>p.bienId===+bienId&&p.bienType===bienType).length;return n?'Photos ('+n+')':' Photos';}
+function openPhotosModal(bienId,bienType){
+  document.getElementById('photos-bien-id').value=bienId;
+  document.getElementById('photos-bien-type').value=bienType;
+  const nom=bienType==='saison'
+    ?((DB.get('biens_saison')||[]).find(b=>b.id===+bienId)?.nom||'Bien #'+bienId)
+    :((DB.get('biens')||[]).find(b=>b.id===+bienId)?.nom||'Bien #'+bienId);
+  document.getElementById('photos-modal-title').textContent=`Photos — ${nom}`;
+  document.getElementById('photos-url-zone').style.display='none';
+  document.getElementById('photos-url-input').value='';
+  document.getElementById('photos-url-caption').value='';
+  renderPhotosGallery();
+  openModal('modal-photos');
+}
+function getPhotosForBien(){
+  const bienId=+document.getElementById('photos-bien-id').value;
+  const bienType=document.getElementById('photos-bien-type').value;
+  return (DB.get('photos')||[]).filter(p=>p.bienId===bienId&&p.bienType===bienType);
+}
+function savePhotos(photos){
+  const bienId=+document.getElementById('photos-bien-id').value;
+  const bienType=document.getElementById('photos-bien-type').value;
+  const all=(DB.get('photos')||[]).filter(p=>!(p.bienId===bienId&&p.bienType===bienType));
+  DB.set('photos',[...all,...photos]);
+}
+function renderPhotosGallery(){
+  const photos=getPhotosForBien();
+  const gallery=document.getElementById('photos-gallery');
+  const warn=document.getElementById('photos-storage-warn');
+  // Estimation espace utilisé
+  try{
+    const used=JSON.stringify(localStorage).length;
+    const usedMo=(used/1024/1024).toFixed(1);
+    if(used>4*1024*1024){warn.style.display='block';warn.textContent=`Espace localStorage utilisé : ${usedMo} Mo / ~5 Mo. Préférez les URL externes pour éviter les pertes de données.`;}
+    else{warn.style.display='none';}
+  }catch(e){}
+  document.getElementById('photos-count-label').textContent=photos.length?`${photos.length} photo(s) — ${photos.filter(p=>p.base64).length} locale(s), ${photos.filter(p=>p.url&&!p.base64).length} URL`:'Aucune photo';
+  if(!photos.length){gallery.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);font-size:14px;">Aucune photo. Importez des fichiers ou ajoutez des liens URL.</div>`;return;}
+  gallery.innerHTML=photos.map((p,i)=>{
+    const src=p.base64||p.url||'';
+    const isCover=i===0;
+    return`<div style="background:var(--navy-deep);border:1px solid ${isCover?'var(--blue-accent)':'var(--border)'};border-radius:8px;overflow:hidden;position:relative;" data-photo-idx="${i}">
+      ${isCover?'<div style="position:absolute;top:8px;left:8px;background:var(--blue-accent);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;z-index:1;">Principale</div>':''}
+      <div style="height:140px;overflow:hidden;background:var(--navy);">
+        <img src="${src}" alt="${p.caption||''}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.opacity='.3';this.src='';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;height:100%;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;">Image non disponible</div>
+      </div>
+      <div style="padding:8px 10px;">
+        <input type="text" value="${(p.caption||'').replace(/"/g,'&quot;')}" placeholder="Légende…" style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--white);font-size:12px;padding:3px 0;outline:none;" onchange="updatePhotoCaption(${i},this.value)">
+        <div style="display:flex;justify-content:space-between;margin-top:8px;">
+          <div style="display:flex;gap:4px;">
+            ${i>0?`<button class="btn btn-ghost btn-sm" style="padding:2px 7px;" onclick="movePhoto(${i},-1)" title="Déplacer à gauche">←</button>`:''}
+            ${i<photos.length-1?`<button class="btn btn-ghost btn-sm" style="padding:2px 7px;" onclick="movePhoto(${i},1)" title="Déplacer à droite">→</button>`:''}
+            ${i>0?'<button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:10px;" onclick="movePhoto('+i+',-'+i+')" title="Définir comme photo principale">Principale</button>':''}
+          </div>
+          <button class="btn btn-danger btn-sm" style="padding:2px 7px;" onclick="deletePhoto(${i})">×</button>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${p.base64?'Locale':'URL externe'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function updatePhotoCaption(idx,val){
+  const photos=getPhotosForBien();
+  if(photos[idx])photos[idx].caption=val;
+  savePhotos(photos);
+}
+function movePhoto(idx,delta){
+  const photos=getPhotosForBien();
+  const newIdx=delta<-1?0:Math.max(0,Math.min(photos.length-1,idx+delta));
+  if(newIdx===idx)return;
+  const [item]=photos.splice(idx,1);photos.splice(newIdx,0,item);
+  photos.forEach((p,i)=>p.ordre=i);
+  savePhotos(photos);renderPhotosGallery();
+}
+function deletePhoto(idx){
+  if(!confirm('Supprimer cette photo ?'))return;
+  const photos=getPhotosForBien();
+  photos.splice(idx,1);photos.forEach((p,i)=>p.ordre=i);
+  savePhotos(photos);renderPhotosGallery();
+  // Rafraîchir le bouton dans la carte
+  const bienId=+document.getElementById('photos-bien-id').value;
+  const bienType=document.getElementById('photos-bien-type').value;
+  if(bienType==='standard')renderBiens();else renderBiensSaison();
+}
+function showAddUrlPhoto(){
+  document.getElementById('photos-url-zone').style.display='block';
+  setTimeout(()=>document.getElementById('photos-url-input').focus(),80);
+}
+function addPhotoByUrl(){
+  const url=document.getElementById('photos-url-input').value.trim();
+  if(!url){return;}
+  const caption=document.getElementById('photos-url-caption').value.trim();
+  const photos=getPhotosForBien();
+  const bienId=+document.getElementById('photos-bien-id').value;
+  const bienType=document.getElementById('photos-bien-type').value;
+  const newId=(DB.get('photos')||[]).reduce((m,p)=>Math.max(m,p.id||0),0)+1;
+  photos.push({id:newId,bienId,bienType,url,base64:null,caption,ordre:photos.length,createdAt:new Date().toISOString()});
+  savePhotos(photos);
+  document.getElementById('photos-url-input').value='';
+  document.getElementById('photos-url-caption').value='';
+  document.getElementById('photos-url-zone').style.display='none';
+  renderPhotosGallery();
+  if(bienType==='standard')renderBiens();else renderBiensSaison();
+}
+async function handlePhotosUpload(event){
+  const files=[...event.target.files];
+  if(!files.length)return;
+  const bienId=+document.getElementById('photos-bien-id').value;
+  const bienType=document.getElementById('photos-bien-type').value;
+  const photos=getPhotosForBien();
+  let nextId=(DB.get('photos')||[]).reduce((m,p)=>Math.max(m,p.id||0),0)+1;
+  for(const file of files){
+    try{
+      const b64=await compressPhoto(file,900,0.78);
+      photos.push({id:nextId++,bienId,bienType,url:null,base64:b64,caption:file.name.replace(/\.[^.]+$/,''),ordre:photos.length,createdAt:new Date().toISOString()});
+    }catch(e){console.warn('Photo erreur:',e);}
+  }
+  try{savePhotos(photos);}
+  catch(e){
+    // localStorage plein : retirer les dernières
+    alert('Espace insuffisant. Réduisez le nombre de photos locales ou utilisez des URL externes.');
+    return;
+  }
+  event.target.value='';
+  renderPhotosGallery();
+  if(bienType==='standard')renderBiens();else renderBiensSaison();
+}
+function compressPhoto(file,maxW,q){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=reject;
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onerror=reject;
+      img.onload=()=>{
+        const ratio=Math.min(maxW/img.width,1);
+        const w=Math.round(img.width*ratio),h=Math.round(img.height*ratio);
+        const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',q));
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+// Photo principale d'un bien (pour usage futur dans les cartes)
+function getPhotoPrincipale(bienId,bienType){
+  const p=(DB.get('photos')||[]).filter(x=>x.bienId===+bienId&&x.bienType===bienType).sort((a,b)=>a.ordre-b.ordre)[0];
+  return p?p.base64||p.url:null;
+}
+
+// ── CANAUX DE DISTRIBUTION ───────────────────────────────────────────────
+const CANAL_DEFS={
+  airbnb:  {label:'Airbnb',    color:'#FF5A5F', commH:3,  commV:15, help:'Airbnb → Calendrier → Disponibilités → Exporter le calendrier → Copier le lien iCal'},
+  booking: {label:'Booking.com',color:'#003580',commH:15, commV:0,  help:'Booking.com → Propriété → Disponibilités → Synchroniser votre calendrier → Copier le lien iCal'},
+  vrbo:    {label:'Vrbo / Abritel',color:'#3D6B9F',commH:8,commV:12,help:'Vrbo → Calendrier → Connecter un calendrier → Exporter → Copier le lien'},
+  leboncoin:{label:'Leboncoin', color:'#F56B2A',commH:0,  commV:0,  help:'Leboncoin ne propose pas de lien iCal. Utilisez l\'import CSV depuis votre espace annonces.'},
+  pap:     {label:'PAP',       color:'#E8001C',commH:0,  commV:0,  help:'PAP ne propose pas de lien iCal. Utilisez l\'import CSV.'},
+  autre:   {label:'Autre',     color:'#5B6B8A',commH:5,  commV:0,  help:'Collez l\'URL iCal fournie par la plateforme, si disponible.'}
+};
+
+function renderCanaux(){
+  const canaux=DB.get('canaux_distribution')||[];
+  const bs=DB.get('biens_saison')||[];
+  const el=document.getElementById('canaux-grid');
+  if(!el)return;
+  el.innerHTML=canaux.length?canaux.map(c=>{
+    const def=CANAL_DEFS[c.plateforme]||CANAL_DEFS.autre;
+    const bienLabel=c.bienId?(bs.find(b=>b.id===c.bienId)?.nom||'Bien #'+c.bienId):'Tous les biens';
+    const lastSync=c.lastSync?`Sync : ${new Date(c.lastSync).toLocaleDateString('fr-FR')} ${new Date(c.lastSync).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`:'Jamais synchronisé';
+    return`<div style="background:var(--navy-deep);border:1px solid var(--border);border-radius:10px;padding:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+        <div>
+          <div style="display:inline-block;background:${def.color}22;border:1px solid ${def.color}55;color:${def.color};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px;margin-bottom:6px;">${def.label}</div>
+          <div style="font-size:15px;font-weight:600;color:var(--white);">${c.nom||def.label}</div>
+          <div style="font-size:12px;color:var(--text-muted);">${bienLabel}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="editCanal(${c.id})">Éditer</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCanal(${c.id})">×</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:12px;font-size:12px;">
+        <div style="flex:1;background:var(--navy);border-radius:6px;padding:8px;text-align:center;">
+          <div style="color:var(--text-muted);">Commission hôte</div>
+          <div style="font-size:16px;font-weight:700;color:var(--white);">${c.commission||0}%</div>
+        </div>
+        <div style="flex:1;background:var(--navy);border-radius:6px;padding:8px;text-align:center;">
+          <div style="color:var(--text-muted);">Commission voyageur</div>
+          <div style="font-size:16px;font-weight:700;color:var(--white);">${c.commissionVoy||0}%</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">${c.icalUrl?`iCal : <span style="color:var(--blue-bright);">${c.icalUrl.substring(0,45)}…</span>`:'Pas d\'URL iCal configurée'}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">${lastSync}</div>
+      <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;" onclick="openSyncCanal(${c.id})">Synchroniser / Importer</button>
+    </div>`;
+  }).join(''):`<div class="empty-state" style="grid-column:1/-1;"><h3>Aucun canal configuré</h3><p>Ajoutez vos plateformes de réservation pour synchroniser vos disponibilités.</p></div>`;
+  // Section export iCal par bien
+  const expEl=document.getElementById('canaux-export-grid');
+  if(expEl){
+    expEl.innerHTML=bs.length?bs.map(b=>`<div style="background:var(--navy-deep);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--white);">${b.nom}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${b.ref} · ${b.ville}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="exportIcalBien(${b.id})">Exporter .ics</button>
+    </div>`).join(''):
+    '<div style="color:var(--text-muted);font-size:13px;">Aucun bien saisonnier.</div>';
+  }
+}
+
+function openCanalModal(id){
+  document.getElementById('canal-id').value=id||'';
+  document.getElementById('modal-canal-title').textContent=id?'Modifier le canal':'Nouveau canal';
+  const bs=DB.get('biens_saison')||[];
+  const sel=document.getElementById('canal-bien');
+  sel.innerHTML='<option value="">Tous les biens</option>'+bs.map(b=>`<option value="${b.id}">${b.nom} (${b.ref})</option>`).join('');
+  if(id){
+    const c=(DB.get('canaux_distribution')||[]).find(x=>x.id===id);if(!c)return;
+    document.getElementById('canal-plateforme').value=c.plateforme||'airbnb';
+    document.getElementById('canal-nom').value=c.nom||'';
+    document.getElementById('canal-bien').value=c.bienId||'';
+    document.getElementById('canal-ical-url').value=c.icalUrl||'';
+    document.getElementById('canal-commission').value=c.commission??'';
+    document.getElementById('canal-commission-voy').value=c.commissionVoy??'';
+    document.getElementById('canal-notes').value=c.notes||'';
+  }else{
+    ['canal-nom','canal-ical-url','canal-notes'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+    document.getElementById('canal-plateforme').value='airbnb';
+    document.getElementById('canal-bien').value='';
+    document.getElementById('canal-commission').value='3';
+    document.getElementById('canal-commission-voy').value='15';
+  }
+  onCanalPlateformeChange();
+  openModal('modal-canal');
+}
+function onCanalPlateformeChange(){
+  const p=document.getElementById('canal-plateforme').value;
+  const def=CANAL_DEFS[p]||CANAL_DEFS.autre;
+  document.getElementById('canal-ical-help').textContent=def.help;
+  // Pré-remplir commissions si vides
+  const ch=document.getElementById('canal-commission');
+  const cv=document.getElementById('canal-commission-voy');
+  if(!ch.value&&!document.getElementById('canal-id').value){ch.value=def.commH;cv.value=def.commV;}
+  if(!document.getElementById('canal-nom').value)document.getElementById('canal-nom').value=def.label;
+}
+function saveCanal(){
+  const id=+document.getElementById('canal-id').value||0;
+  const canaux=DB.get('canaux_distribution')||[];
+  const obj={plateforme:document.getElementById('canal-plateforme').value,nom:document.getElementById('canal-nom').value,bienId:+document.getElementById('canal-bien').value||null,icalUrl:document.getElementById('canal-ical-url').value.trim(),commission:+document.getElementById('canal-commission').value||0,commissionVoy:+document.getElementById('canal-commission-voy').value||0,notes:document.getElementById('canal-notes').value};
+  if(id){const i=canaux.findIndex(c=>c.id===id);if(i>=0){obj.id=id;obj.lastSync=canaux[i].lastSync||null;canaux[i]=obj;}else{obj.id=id;canaux.push(obj);}}
+  else{obj.id=canaux.length?Math.max(...canaux.map(c=>c.id))+1:1;obj.lastSync=null;canaux.push(obj);}
+  DB.set('canaux_distribution',canaux);closeModal('modal-canal');renderCanaux();
+}
+function editCanal(id){openCanalModal(id);}
+function deleteCanal(id){if(!confirm('Supprimer ce canal ?'))return;DB.set('canaux_distribution',(DB.get('canaux_distribution')||[]).filter(c=>c.id!==id));renderCanaux();}
+
+// ── SYNC iCal ────────────────────────────────────────────────────────────
+function openSyncCanal(canalId){
+  const c=(DB.get('canaux_distribution')||[]).find(x=>x.id===canalId);if(!c)return;
+  const def=CANAL_DEFS[c.plateforme]||CANAL_DEFS.autre;
+  document.getElementById('sync-canal-id').value=canalId;
+  document.getElementById('sync-canal-title').textContent=`Sync — ${c.nom||def.label}`;
+  const log=document.getElementById('sync-canal-log');
+  log.innerHTML=c.icalUrl
+    ?`<span style="color:var(--text-muted);">Prêt. Cliquez <strong style="color:var(--white);">Synchroniser iCal</strong> pour importer les réservations.\niCal : ${c.icalUrl.substring(0,60)}…</span>`
+    :'<span style="color:var(--warning);">Aucune URL iCal configurée pour ce canal. Utilisez l\'import fichier ci-dessous.</span>';
+  const btnSync=document.getElementById('sync-ical-btn');
+  if(btnSync)btnSync.style.display=c.icalUrl?'':'none';
+  // Aide CSV
+  const csvHelp={'airbnb':'Airbnb → Tableau de bord → Réservations → Exporter → CSV','booking':'Booking.com → Réservations → Télécharger → CSV','vrbo':'Vrbo → Calendrier → Exporter les réservations','leboncoin':'Leboncoin → Mes annonces → Gérer → Réservations → Télécharger','pap':'PAP → Espace propriétaire → Réservations → Export CSV','autre':'Format attendu : arrivée,départ,prénom,nom,email,téléphone,montant,statut'};
+  document.getElementById('sync-csv-mapping').innerHTML=`<strong style="color:var(--text-secondary);">Comment obtenir le CSV :</strong><br>${csvHelp[c.plateforme]||csvHelp.autre}`;
+  openModal('modal-sync-canal');
+}
+async function syncIcal(){
+  const canalId=+document.getElementById('sync-canal-id').value;
+  const c=(DB.get('canaux_distribution')||[]).find(x=>x.id===canalId);if(!c||!c.icalUrl)return;
+  const log=document.getElementById('sync-canal-log');
+  const logLine=(msg,col)=>log.innerHTML+=`<span style="color:${col||'var(--text-secondary)'};">${msg}</span>\n`;
+  log.innerHTML='';logLine('Connexion en cours…');
+  try{
+    const proxyUrl=`https://api.allorigins.win/raw?url=${encodeURIComponent(c.icalUrl)}`;
+    const resp=await fetch(proxyUrl,{signal:AbortSignal.timeout(15000)});
+    if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
+    const ics=await resp.text();
+    logLine(`iCal reçu (${Math.round(ics.length/1024)}Ko)`,'var(--success)');
+    const events=parseIcs(ics);
+    logLine(`${events.length} événement(s) trouvé(s)`);
+    let added=0,skipped=0;
+    const res=DB.get('reservations')||[];
+    const bs=DB.get('biens_saison')||[];
+    const bienId=c.bienId||(bs[0]?.id)||null;
+    for(const ev of events){
+      if(!ev.dtstart||!ev.dtend)continue;
+      // Vérifier doublon (même uid ou mêmes dates+source)
+      const exists=res.find(r=>r.icalUid===ev.uid||(r.arrivee===ev.dtstart&&r.depart===ev.dtend&&r.source===c.plateforme&&r.bienSaisonId===bienId));
+      if(exists){skipped++;continue;}
+      const parts=(ev.summary||'').split(' ');
+      const newRes={id:res.length?Math.max(...res.map(r=>r.id))+1:1,bienSaisonId:bienId,arrivee:ev.dtstart,depart:ev.dtend,client_prenom:parts[0]||'Réservation',client_nom:parts.slice(1).join(' ')||c.nom,client_email:'',client_tel:'',montant:0,commission:c.commission||0,statut:'confirmee',source:c.plateforme,icalUid:ev.uid||'',notes:ev.description||''};
+      res.push(newRes);added++;
+    }
+    DB.set('reservations',res);
+    // Mettre à jour lastSync
+    const canaux=DB.get('canaux_distribution')||[];const ci=canaux.findIndex(x=>x.id===canalId);if(ci>=0){canaux[ci].lastSync=new Date().toISOString();DB.set('canaux_distribution',canaux);}
+    logLine(`${added} réservation(s) importée(s), ${skipped} ignorée(s) (déjà existantes)`,'var(--success)');
+    if(added>0){logLine('Mise à jour du calendrier…');renderCanaux();}
+  }catch(e){
+    logLine(`Erreur : ${e.message}`,'var(--danger)');
+    logLine('Vérifiez l\'URL iCal ou importez un fichier .ics manuellement.','var(--warning)');
+  }
+}
+function parseIcs(ics){
+  const events=[];
+  const blocks=ics.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g)||[];
+  for(const b of blocks){
+    const get=k=>{const m=b.match(new RegExp(k+'(?:;[^:]*)?:([^\r\n]+)'));return m?m[1].trim():''};
+    events.push({uid:get('UID'),summary:get('SUMMARY'),description:get('DESCRIPTION'),dtstart:parseIcsDate(get('DTSTART')),dtend:parseIcsDate(get('DTEND'))});
+  }
+  return events;
+}
+function parseIcsDate(s){
+  if(!s)return null;
+  s=s.replace(/T.*$/,'');// DATE-TIME → DATE
+  if(s.length===8)return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  return null;
+}
+function importFichierCanal(){
+  const file=document.getElementById('sync-csv-file').files[0];if(!file)return;
+  const log=document.getElementById('sync-canal-log');
+  const logLine=(msg,col)=>log.innerHTML+=`<span style="color:${col||'var(--text-secondary)'};">${msg}</span>\n`;
+  log.innerHTML='';
+  const ext=file.name.split('.').pop().toLowerCase();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const content=e.target.result;
+    if(ext==='ics'){logLine('Fichier .ics détecté');const ev=parseIcs(content);logLine(`${ev.length} événement(s) trouvé(s)`);importIcsEvents(ev);}
+    else{logLine('Fichier CSV détecté');importCsvContent(content);}
+  };
+  reader.readAsText(file,'UTF-8');
+}
+function importIcsEvents(events){
+  const canalId=+document.getElementById('sync-canal-id').value;
+  const c=(DB.get('canaux_distribution')||[]).find(x=>x.id===canalId)||{};
+  const res=DB.get('reservations')||[];
+  const bs=DB.get('biens_saison')||[];
+  const bienId=c.bienId||(bs[0]?.id)||null;
+  const log=document.getElementById('sync-canal-log');
+  const logLine=(msg,col)=>log.innerHTML+=`<span style="color:${col||'var(--text-secondary)'};">${msg}</span>\n`;
+  let added=0,skipped=0;
+  for(const ev of events){
+    if(!ev.dtstart||!ev.dtend)continue;
+    const exists=res.find(r=>r.icalUid===ev.uid||(r.arrivee===ev.dtstart&&r.depart===ev.dtend&&r.bienSaisonId===bienId));
+    if(exists){skipped++;continue;}
+    const parts=(ev.summary||'').split(' ');
+    res.push({id:res.length?Math.max(...res.map(r=>r.id))+1:1,bienSaisonId:bienId,arrivee:ev.dtstart,depart:ev.dtend,client_prenom:parts[0]||'Réservation',client_nom:parts.slice(1).join(' ')||'',client_email:'',client_tel:'',montant:0,commission:c.commission||0,statut:'confirmee',source:c.plateforme||'import',icalUid:ev.uid||'',notes:ev.description||''});
+    added++;
+  }
+  DB.set('reservations',res);
+  logLine(`${added} importée(s), ${skipped} ignorée(s)`,'var(--success)');
+}
+function importCsvContent(csv){
+  const canalId=+document.getElementById('sync-canal-id').value;
+  const c=(DB.get('canaux_distribution')||[]).find(x=>x.id===canalId)||{};
+  const log=document.getElementById('sync-canal-log');
+  const logLine=(msg,col)=>log.innerHTML+=`<span style="color:${col||'var(--text-secondary)'};">${msg}</span>\n`;
+  const lines=csv.split('\n').filter(l=>l.trim());
+  if(lines.length<2){logLine('CSV vide ou invalide','var(--danger)');return;}
+  const headers=lines[0].split(/[,;]/).map(h=>h.trim().toLowerCase().replace(/"/g,''));
+  const find=(...keys)=>headers.findIndex(h=>keys.some(k=>h.includes(k)));
+  const iArr=find('arrivee','arrival','check-in','checkin','start');
+  const iDep=find('depart','departure','check-out','checkout','end');
+  const iPre=find('prenom','first','prénom');
+  const iNom=find('nom','last','name');
+  const iMt=find('montant','amount','total','prix');
+  const iSt=find('statut','status','state');
+  if(iArr<0||iDep<0){logLine('Colonnes arrivée/départ introuvables. Vérifiez le format CSV.','var(--danger)');return;}
+  const res=DB.get('reservations')||[];
+  const bs=DB.get('biens_saison')||[];
+  const bienId=c.bienId||(bs[0]?.id)||null;
+  let added=0,skipped=0;
+  const parseDate=s=>{s=(s||'').replace(/"/g,'').trim();if(!s)return null;const d=new Date(s);return isNaN(d)?null:d.toISOString().split('T')[0];};
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].split(/[,;]/).map(c=>c.replace(/"/g,'').trim());
+    const arrivee=parseDate(cols[iArr]);
+    const depart=parseDate(cols[iDep]);
+    if(!arrivee||!depart)continue;
+    const exists=res.find(r=>r.arrivee===arrivee&&r.depart===depart&&r.bienSaisonId===bienId);
+    if(exists){skipped++;continue;}
+    res.push({id:res.length?Math.max(...res.map(r=>r.id))+1:1,bienSaisonId:bienId,arrivee,depart,client_prenom:iPre>=0?(cols[iPre]||''):'Import',client_nom:iNom>=0?(cols[iNom]||''):c.nom||'',client_email:'',client_tel:'',montant:iMt>=0?+cols[iMt]||0:0,commission:c.commission||0,statut:iSt>=0&&cols[iSt]?cols[iSt]:'confirmee',source:c.plateforme||'csv',icalUid:'',notes:''});
+    added++;
+  }
+  DB.set('reservations',res);
+  logLine(`${added} ligne(s) importée(s), ${skipped} ignorée(s)`,'var(--success)');
+}
+
+// ── EXPORT iCal ──────────────────────────────────────────────────────────
+function exportIcalBien(bienSaisonId){
+  const res=(DB.get('reservations')||[]).filter(r=>r.bienSaisonId===bienSaisonId&&['confirmee','en_cours'].includes(r.statut));
+  const bs=(DB.get('biens_saison')||[]).find(b=>b.id===bienSaisonId);
+  const nom=bs?.nom||'Bien'+bienSaisonId;
+  const nl='\r\n';
+  let ics=`BEGIN:VCALENDAR${nl}VERSION:2.0${nl}PRODID:-//GESLOC97//FR${nl}X-WR-CALNAME:${nom}${nl}`;
+  for(const r of res){
+    const dtstart=r.arrivee.replace(/-/g,'');
+    const dtend=r.depart.replace(/-/g,'');
+    const uid=r.icalUid||`gesloc97-${r.id}@gesloc97.mq`;
+    const summary=`${r.client_prenom} ${r.client_nom}`.trim()||'Réservé';
+    ics+=`BEGIN:VEVENT${nl}UID:${uid}${nl}DTSTART;VALUE=DATE:${dtstart}${nl}DTEND;VALUE=DATE:${dtend}${nl}SUMMARY:${summary}${nl}STATUS:CONFIRMED${nl}END:VEVENT${nl}`;
+  }
+  ics+=`END:VCALENDAR`;
+  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gesloc97-${nom.replace(/\s+/g,'-')}.ics`;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
 // --- RESERVATIONS ---
@@ -4593,6 +5035,132 @@ init();
     <div style="display:flex;gap:10px;">
       <button class="btn btn-secondary" style="flex:1;justify-content:center;" onclick="document.getElementById('modal-mode-bien').style.display='none'">Annuler</button>
       <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="confirmerModeBien()">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL CANAL DE DISTRIBUTION ──────────────────────────── -->
+<div class="modal-overlay" id="modal-canal">
+  <div class="modal" style="width:600px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-canal-title">Nouveau canal</div>
+      <button class="modal-close" onclick="closeModal('modal-canal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="canal-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Plateforme</label>
+          <select class="form-control" id="canal-plateforme" onchange="onCanalPlateformeChange()">
+            <option value="airbnb">Airbnb</option>
+            <option value="booking">Booking.com</option>
+            <option value="vrbo">Vrbo / Abritel</option>
+            <option value="leboncoin">Leboncoin</option>
+            <option value="pap">PAP</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nom affiché</label>
+          <input class="form-control" id="canal-nom" placeholder="ex : Airbnb Villa Bleue">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bien saisonnier associé <span style="color:var(--text-muted);font-weight:400;">(optionnel — laissez vide pour appliquer à tous)</span></label>
+        <select class="form-control" id="canal-bien">
+          <option value="">Tous les biens</option>
+        </select>
+      </div>
+      <div style="background:var(--navy);border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Synchronisation iCal</div>
+        <div class="form-group" style="margin-bottom:8px;">
+          <label class="form-label">URL iCal import <span style="color:var(--text-muted);font-weight:400;">(fournie par la plateforme)</span></label>
+          <input class="form-control" id="canal-ical-url" placeholder="https://www.airbnb.fr/calendar/ical/XXXXX.ics?s=XXX" style="font-size:12px;">
+        </div>
+        <div id="canal-ical-help" style="font-size:11px;color:var(--text-muted);line-height:1.6;padding:8px;background:var(--navy-deep);border-radius:6px;margin-top:6px;"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Commission hôte <span style="color:var(--text-muted);font-weight:400;">(%)</span></label>
+          <input class="form-control" id="canal-commission" type="number" min="0" max="100" step="0.1" placeholder="3">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Commission voyageur <span style="color:var(--text-muted);font-weight:400;">(%)</span></label>
+          <input class="form-control" id="canal-commission-voy" type="number" min="0" max="100" step="0.1" placeholder="15">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" id="canal-notes" rows="2" placeholder="Informations compte, contrat, contact support..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-canal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveCanal()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL SYNC ICAL ───────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-sync-canal">
+  <div class="modal" style="width:580px;">
+    <div class="modal-header">
+      <div class="modal-title" id="sync-canal-title">Synchronisation</div>
+      <button class="modal-close" onclick="closeModal('modal-sync-canal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sync-canal-id">
+      <!-- Résultats sync -->
+      <div id="sync-canal-log" style="font-size:12px;background:var(--navy);border-radius:8px;padding:14px;min-height:80px;max-height:260px;overflow-y:auto;font-family:monospace;line-height:1.8;"></div>
+      <!-- Import CSV -->
+      <div style="margin-top:20px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Import CSV (export depuis la plateforme)</div>
+        <div id="sync-csv-mapping" style="background:var(--navy);border-radius:8px;padding:14px;margin-bottom:10px;font-size:12px;color:var(--text-muted);line-height:1.7;"></div>
+        <input type="file" id="sync-csv-file" accept=".csv,.ics" style="display:none;" onchange="importFichierCanal()">
+        <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="document.getElementById('sync-csv-file').click()">Importer un fichier (.csv ou .ics)</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-sync-canal')">Fermer</button>
+      <button class="btn btn-primary" id="sync-ical-btn" onclick="syncIcal()">Synchroniser iCal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL PHOTOS ─────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-photos" style="align-items:flex-start;padding:20px;overflow-y:auto;">
+  <div class="modal" style="width:780px;margin:auto;">
+    <div class="modal-header">
+      <div class="modal-title" id="photos-modal-title">Photos du bien</div>
+      <button class="modal-close" onclick="closeModal('modal-photos')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="photos-bien-id">
+      <input type="hidden" id="photos-bien-type">
+      <!-- Avertissement espace localStorage -->
+      <div id="photos-storage-warn" style="display:none;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.3);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--warning);margin-bottom:14px;"></div>
+      <!-- Barre d'actions -->
+      <div style="display:flex;gap:10px;margin-bottom:20px;">
+        <button class="btn btn-primary" onclick="document.getElementById('photos-file-input').click()">Importer des photos</button>
+        <button class="btn btn-secondary" onclick="showAddUrlPhoto()">Ajouter un lien URL</button>
+        <input type="file" id="photos-file-input" accept="image/*" multiple style="display:none;" onchange="handlePhotosUpload(event)">
+      </div>
+      <!-- Zone URL -->
+      <div id="photos-url-zone" style="display:none;background:var(--navy);border-radius:8px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Ajouter une photo par URL</div>
+        <div style="display:flex;gap:8px;">
+          <input class="form-control" id="photos-url-input" placeholder="https://…/photo.jpg" style="flex:1;">
+          <input class="form-control" id="photos-url-caption" placeholder="Légende (optionnel)" style="width:200px;">
+          <button class="btn btn-primary btn-sm" onclick="addPhotoByUrl()">Ajouter</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('photos-url-zone').style.display='none'">×</button>
+        </div>
+      </div>
+      <!-- Galerie -->
+      <div id="photos-gallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;min-height:120px;"></div>
+    </div>
+    <div class="modal-footer">
+      <div id="photos-count-label" style="font-size:12px;color:var(--text-muted);margin-right:auto;align-self:center;"></div>
+      <button class="btn btn-secondary" onclick="closeModal('modal-photos')">Fermer</button>
     </div>
   </div>
 </div>
