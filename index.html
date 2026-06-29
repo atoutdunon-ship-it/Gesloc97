@@ -1497,13 +1497,10 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
     </div>
     <div class="modal-body">
       <input type="hidden" id="edl-edit-id">
-      <div style="background:rgba(46,111,217,.08);border:1px solid rgba(46,111,217,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blue-bright);margin-bottom:16px;">
-        Décret n°2016-382 du 30 mars 2016 — Modèle-type d'état des lieux d'entrée et de sortie des locaux à usage d'habitation.
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Type d'état des lieux</label>
-          <select class="form-control" id="edl-type" onchange="onEdlTypeChange()">
+      <!-- Sélecteur de type — bien visible en tête -->
+      <div style="background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:18px;">
+        <label class="form-label" style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:10px;display:block;">Type d'état des lieux</label>
+        <select class="form-control" id="edl-type" onchange="onEdlTypeChange()" style="font-size:14px;font-weight:600;">
             <optgroup label="Résidentiel">
               <option value="entree">Entrée dans les lieux</option>
               <option value="sortie">Sortie des lieux</option>
@@ -1512,8 +1509,12 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
               <option value="pro_entree">Professionnel — Entrée</option>
               <option value="pro_sortie">Professionnel — Sortie</option>
             </optgroup>
-          </select>
-        </div>
+        </select>
+        <!-- Bandeau légal conditionnel -->
+        <div id="edl-bandeau-residentiel" style="margin-top:10px;padding:8px 12px;background:rgba(46,111,217,.08);border:1px solid rgba(46,111,217,.2);border-radius:6px;font-size:11px;color:var(--blue-bright);">Décret n°2016-382 du 30 mars 2016 — Modèle-type d'état des lieux d'entrée et de sortie des locaux à usage d'habitation.</div>
+        <div id="edl-bandeau-pro" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(46,111,217,.08);border:1px solid rgba(46,111,217,.2);border-radius:6px;font-size:11px;color:var(--blue-bright);">État des lieux professionnel — Code de commerce art. L145-1 et suivants. Aucune forme imposée, valeur contractuelle.</div>
+      </div>
+      <div class="form-row">
         <div class="form-group">
           <label class="form-label">Date</label>
           <input class="form-control" type="date" id="edl-date">
@@ -2035,7 +2036,6 @@ function saveBien(){
   DB.set('biens',biens);closeModal('modal-bien');renderBiens();
 }
 function deleteBien(id){if(!confirm('Supprimer ce bien ?'))return;DB.set('biens',DB.get('biens').filter(b=>b.id!==id));renderBiens();}
-document.querySelector('[data-view="biens"]').addEventListener('click',()=>{},true);
 
 // ===================== LOCATAIRES =====================
 function renderLocataires(){
@@ -3104,8 +3104,11 @@ function renderEdl(){
   const edls=DB.get('edls')||[];
   document.getElementById('edl-tbody').innerHTML=edls.length?edls.map(e=>{
     const b=getBien(e.bienId);const l=getLoc(e.locataireId);
+    const _isPro=['pro_entree','pro_sortie'].includes(e.type);
+    const _typeLabel=e.type==='entree'?'Entrée':e.type==='sortie'?'Sortie':e.type==='pro_entree'?'Pro — Entrée':'Pro — Sortie';
+    const _typeBadge=e.type==='entree'?'success':e.type==='sortie'?'warning':'info';
     return`<tr>
-      <td><span class="badge badge-${e.type==='entree'?'success':'warning'}">${e.type==='entree'?'Entrée':'Sortie'}</span></td>
+      <td><span class="badge badge-${_typeBadge}">${_typeLabel}</span></td>
       <td>${b?b.nom:'?'}</td>
       <td>${l?locName(l):'?'}</td>
       <td>${fmtDate(e.date)}</td>
@@ -3121,28 +3124,35 @@ function renderEdl(){
 
 let edlPiecesCount=0;
 function openEdlModal(){
-  document.getElementById('edl-edit-id').value='';
-  document.getElementById('modal-edl-title').textContent='Nouvel état des lieux';
-  document.getElementById('edl-type').value='entree';
-  document.getElementById('edl-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('edl-heure').value='10:00';
-  document.getElementById('edl-eau').value='';
-  document.getElementById('edl-elec').value='';
-  document.getElementById('edl-cles').value='2';
-  document.getElementById('edl-observations').value='';
-  document.getElementById('edl-reserves').value='';
-  // Peupler sélects
-  const biens=DB.get('biens');const locs=DB.get('locataires');
-  document.getElementById('edl-bien').innerHTML=biens.map(b=>`<option value="${b.id}">${b.ref} — ${b.nom}</option>`).join('');
-  document.getElementById('edl-locataire').innerHTML=locs.map(l=>`<option value="${l.id}">${l.prenom} ${l.nom}</option>`).join('');
-  // Pièces par défaut
-  edlPiecesCount=0;
-  document.getElementById('edl-pieces-form').innerHTML='';
-  EDL_PIECES_DEFAUT.forEach(p=>addEdlPiece(p));
-  onEdlTypeChange();
-  openModal('modal-edl');
+  try{
+    const _el=id=>document.getElementById(id);
+    _el('edl-edit-id').value='';
+    _el('modal-edl-title').textContent='Nouvel état des lieux';
+    _el('edl-type').value='entree';
+    _el('edl-date').value=new Date().toISOString().split('T')[0];
+    _el('edl-heure').value='10:00';
+    _el('edl-eau').value='';
+    _el('edl-elec').value='';
+    _el('edl-cles').value='2';
+    _el('edl-observations').value='';
+    _el('edl-reserves').value='';
+    // Peupler sélects biens et locataires
+    const biens=DB.get('biens')||[];
+    const locs=DB.get('locataires')||[];
+    _el('edl-bien').innerHTML=(biens.length?biens.map(b=>`<option value="${b.id}">${b.ref||''} — ${b.nom||''}</option>`).join(''):'<option value="">— Aucun bien —</option>');
+    _el('edl-locataire').innerHTML=(locs.length?locs.map(l=>`<option value="${l.id}">${l.prenom||''} ${l.nom||''}</option>`).join(''):'<option value="">— Aucun locataire —</option>');
+    // Réinitialiser les pièces
+    edlPiecesCount=0;
+    _el('edl-pieces-form').innerHTML='';
+    EDL_PIECES_DEFAUT.forEach(p=>addEdlPiece(p));
+    onEdlTypeChange();
+    openModal('modal-edl');
+  }catch(err){
+    console.error('[EDL] openEdlModal error:',err);
+    alert('Erreur ouverture EDL : '+err.message+'\n\nConsultez la console pour les détails.');
+  }
 }
-function addEdlPiece(piece=''){
+function addEdlPiece(piece='',ctx=''){
   // Accepte soit une string (nom seul) soit un objet {nom,sols,murs,menu,equip,obs}
   const nom=typeof piece==='string'?piece:(piece.nom||'');
   const vSols=typeof piece==='object'?piece.sols||'':'';
@@ -3301,7 +3311,7 @@ function buildEdlDoc(e){
     <div id="print-edl" style="font-family:Arial,sans-serif;font-size:13px;line-height:1.5;color:#000;">
       <div style="text-align:center;margin-bottom:4px;"><strong style="font-size:11px;color:#666;">Décret n°2016-382 du 30 mars 2016 — Modèle-type d'état des lieux (Loi ALUR n°2014-366)</strong></div>
       <h2 style="font-size:18px;text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:16px;text-transform:uppercase;">
-        ÉTAT DES LIEUX D'${e.type==='entree'?'ENTRÉE':'SORTIE'}
+        ${e.type==='pro_entree'||e.type==='pro_sortie'?'ÉTAT DES LIEUX PROFESSIONNEL D\''+(e.type==='pro_entree'?'ENTRÉE':'SORTIE'):'ÉTAT DES LIEUX D\''+(e.type==='entree'?'ENTRÉE':'SORTIE')}
       </h2>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
         <div style="border:1px solid #999;padding:10px;border-radius:4px;">
@@ -4200,6 +4210,9 @@ function onEdlTypeChange(){
   const isPro=['pro_entree','pro_sortie'].includes(t);
   document.getElementById('edl-section-residentiel').style.display=isPro?'none':'block';
   document.getElementById('edl-section-pro').style.display=isPro?'block':'none';
+  const br=document.getElementById('edl-bandeau-residentiel');const bp=document.getElementById('edl-bandeau-pro');
+  if(br)br.style.display=isPro?'none':'block';if(bp)bp.style.display=isPro?'block':'none';
+  document.getElementById('modal-edl-title').textContent=isPro?(t==='pro_entree'?'EDL Professionnel — Entrée':'EDL Professionnel — Sortie'):(t==='entree'?'État des lieux — Entrée':'État des lieux — Sortie');
 }
 
 // ── MODULE PHOTOS ─────────────────────────────────────────────────────────
