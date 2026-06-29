@@ -1423,6 +1423,9 @@ tbody tr:hover{background:rgba(193,154,107,.04);}
             <option value="particulier">Particulier</option>
             <option value="sci">SCI</option>
             <option value="sarl">SARL</option>
+            <option value="eurl">EURL</option>
+            <option value="sas">S.A.S</option>
+            <option value="sasu">S.A.S.U</option>
             <option value="autre">Autre société</option>
           </select>
         </div>
@@ -3004,8 +3007,9 @@ function renderPropGrid(props,biens,contrats,loyers){
     const totalLoyers=loyersMois.reduce((s,l)=>s+l.loyer+l.charges,0);
     const honTx=p.honoraires||7;
     const hon=Math.round(totalLoyers*honTx/100);
+    const _PROP_TYPE_LBL={particulier:'Particulier',sci:'SCI',sarl:'SARL',eurl:'EURL',sas:'S.A.S',sasu:'S.A.S.U',autre:'Autre société'};
     return`<div class="bien-card">
-      <div class="bien-ref">${p.ref} · ${p.type.toUpperCase()}</div>
+      <div class="bien-ref">${p.ref} · ${_PROP_TYPE_LBL[p.type]||p.type.toUpperCase()}</div>
       <div class="bien-name">${propName(p)}</div>
       <div class="bien-addr" style="margin-bottom:10px;">${p.email} · ${p.tel}</div>
       <div class="bien-addr">${p.adresse}</div>
