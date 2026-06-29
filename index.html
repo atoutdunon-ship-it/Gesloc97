@@ -1419,7 +1419,7 @@ tbody tr:hover{background:rgba(193,154,107,.04);}
         </div>
         <div class="form-group">
           <label class="form-label">Type</label>
-          <select class="form-control" id="prop-type">
+          <select class="form-control" id="prop-type" onchange="onPropTypeChange()">
             <option value="particulier">Particulier</option>
             <option value="sci">SCI</option>
             <option value="sarl">SARL</option>
@@ -1430,14 +1430,34 @@ tbody tr:hover{background:rgba(193,154,107,.04);}
           </select>
         </div>
       </div>
-      <div class="form-row" id="prop-particulier-fields">
+      <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Prénom</label>
+          <label class="form-label" id="prop-label-prenom">Prénom</label>
           <input class="form-control" id="prop-prenom" placeholder="Jean">
         </div>
         <div class="form-group">
-          <label class="form-label">Nom / Raison sociale</label>
+          <label class="form-label" id="prop-label-nom">Nom</label>
           <input class="form-control" id="prop-nom" placeholder="MARTIN">
+        </div>
+      </div>
+      <div class="form-row" id="prop-rep-fields" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Rôle du représentant</label>
+          <select class="form-control" id="prop-rep-role">
+            <option value="">— Sélectionner —</option>
+            <option value="Président">Président</option>
+            <option value="Gérant">Gérant</option>
+            <option value="Co-gérant">Co-gérant</option>
+            <option value="Directeur Général">Directeur Général</option>
+            <option value="Mandataire">Mandataire</option>
+            <option value="Représentant légal">Représentant légal</option>
+            <option value="Associé">Associé</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nom du représentant</label>
+          <input class="form-control" id="prop-rep-nom" placeholder="NOM Prénom">
         </div>
       </div>
       <div class="form-row">
@@ -3011,6 +3031,7 @@ function renderPropGrid(props,biens,contrats,loyers){
     return`<div class="bien-card">
       <div class="bien-ref">${p.ref} · ${_PROP_TYPE_LBL[p.type]||p.type.toUpperCase()}</div>
       <div class="bien-name">${propName(p)}</div>
+      ${p.type!=='particulier'&&(p.rep_nom||p.rep_role)?`<div class="bien-addr" style="color:var(--blue-accent);margin-bottom:2px;">${[p.rep_role,p.rep_nom?((p.prenom?p.prenom+' ':'')+p.rep_nom):''].filter(Boolean).join(' — ')}</div>`:''}
       <div class="bien-addr" style="margin-bottom:10px;">${p.email} · ${p.tel}</div>
       <div class="bien-addr">${p.adresse}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0;">
@@ -3050,13 +3071,24 @@ function filterProprietaires(){
   const biens=DB.get('biens');const contrats=DB.get('contrats').filter(c=>c.statut==='actif');const loyers=DB.get('loyers');
   renderPropGrid((DB.get('proprietaires')||[]).filter(p=>propName(p).toLowerCase().includes(q)||p.email.toLowerCase().includes(q)||p.ref.toLowerCase().includes(q)),biens,contrats,loyers);
 }
+function onPropTypeChange(){
+  const t=document.getElementById('prop-type').value;
+  const isSoc=t!=='particulier';
+  document.getElementById('prop-rep-fields').style.display=isSoc?'':'none';
+  document.getElementById('prop-label-prenom').textContent=isSoc?'Prénom du représentant':'Prénom';
+  document.getElementById('prop-label-nom').textContent=isSoc?'Raison sociale':'Nom';
+  if(isSoc){document.getElementById('prop-prenom').placeholder='Prénom';document.getElementById('prop-nom').placeholder='SCI MARTIN INVEST';}
+  else{document.getElementById('prop-prenom').placeholder='Jean';document.getElementById('prop-nom').placeholder='MARTIN';}
+}
 function openPropModal(){
   document.getElementById('prop-edit-id').value='';
   document.getElementById('modal-prop-title').textContent='Nouveau propriétaire';
-  ['ref','prenom','nom','email','tel','adresse','nif','iban','notes'].forEach(f=>document.getElementById('prop-'+f).value='');
+  ['ref','prenom','nom','email','tel','adresse','nif','iban','notes','rep-nom'].forEach(f=>document.getElementById('prop-'+f).value='');
   document.getElementById('prop-honoraires').value='7';
   document.getElementById('prop-type').value='particulier';
   document.getElementById('prop-regime').value='micro';
+  document.getElementById('prop-rep-role').value='';
+  onPropTypeChange();
   openModal('modal-proprietaire');
 }
 function editProprietaire(id){
@@ -3066,12 +3098,18 @@ function editProprietaire(id){
   ['ref','prenom','nom','email','tel','adresse','nif','iban','honoraires','notes'].forEach(f=>document.getElementById('prop-'+f).value=p[f]||'');
   document.getElementById('prop-type').value=p.type||'particulier';
   document.getElementById('prop-regime').value=p.regime||'micro';
+  document.getElementById('prop-rep-role').value=p.rep_role||'';
+  document.getElementById('prop-rep-nom').value=p.rep_nom||'';
+  onPropTypeChange();
   openModal('modal-proprietaire');
 }
 function saveProprietaire(){
   const id=document.getElementById('prop-edit-id').value;
   const props=DB.get('proprietaires')||[];
-  const obj={ref:document.getElementById('prop-ref').value,type:document.getElementById('prop-type').value,prenom:document.getElementById('prop-prenom').value,nom:document.getElementById('prop-nom').value,email:document.getElementById('prop-email').value,tel:document.getElementById('prop-tel').value,adresse:document.getElementById('prop-adresse').value,nif:document.getElementById('prop-nif').value,iban:document.getElementById('prop-iban').value,honoraires:+document.getElementById('prop-honoraires').value,regime:document.getElementById('prop-regime').value,notes:document.getElementById('prop-notes').value};
+  const t=document.getElementById('prop-type').value;
+  const isSoc=t!=='particulier';
+  const obj={ref:document.getElementById('prop-ref').value,type:t,prenom:document.getElementById('prop-prenom').value,nom:document.getElementById('prop-nom').value,email:document.getElementById('prop-email').value,tel:document.getElementById('prop-tel').value,adresse:document.getElementById('prop-adresse').value,nif:document.getElementById('prop-nif').value,iban:document.getElementById('prop-iban').value,honoraires:+document.getElementById('prop-honoraires').value,regime:document.getElementById('prop-regime').value,notes:document.getElementById('prop-notes').value};
+  if(isSoc){obj.rep_role=document.getElementById('prop-rep-role').value;obj.rep_nom=document.getElementById('prop-rep-nom').value;}
   if(id){const i=props.findIndex(p=>p.id===+id);if(i>=0){obj.id=+id;props[i]=obj;}}else{obj.id=props.length?(Math.max(...props.map(p=>p.id||0))+1):1;props.push(obj);}
   DB.set('proprietaires',props);closeModal('modal-proprietaire');renderProprietaires();populatePropSelect();
 }
