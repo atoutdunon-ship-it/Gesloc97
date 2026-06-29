@@ -706,9 +706,16 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
         </div>
         <div class="form-group">
           <label class="form-label">Type de bien</label>
-          <select class="form-control" id="bien-type">
-            <option>Appartement</option><option>Maison</option><option>Villa</option>
-            <option>Studio</option><option>Parking</option><option>Local commercial</option><option>Bureau</option>
+          <select class="form-control" id="bien-type" onchange="onBienTypeChange()">
+            <optgroup label="Résidentiel">
+              <option>Appartement</option><option>Maison</option><option>Villa</option><option>Studio</option><option>Parking</option>
+            </optgroup>
+            <optgroup label="Professionnel">
+              <option value="Bureau">Bureau</option><option value="Cabinet">Cabinet</option>
+              <option value="Commerce">Commerce</option><option value="Boutique">Boutique</option>
+              <option value="Entrepôt">Entrepôt</option><option value="Local d'activité">Local d'activité</option>
+              <option value="Local mixte">Local mixte</option><option value="Terrain Pro">Terrain Pro</option>
+            </optgroup>
           </select>
         </div>
       </div>
@@ -826,6 +833,41 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
           </select>
         </div>
       </div>
+      <!-- Section Professionnel (affichée si type pro) -->
+      <div id="bien-pro-section" style="display:none;background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--blue-bright);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Informations professionnelles</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Activité principale</label><input class="form-control" id="bien-activite" placeholder="Restauration, Commerce, Cabinet médical…"></div>
+          <div class="form-group"><label class="form-label">Surface commerciale (m²)</label><input class="form-control" type="number" id="bien-surface-com" placeholder="0" min="0"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Vitrine</label>
+            <select class="form-control" id="bien-vitrine"><option value="0">Non</option><option value="1">Oui</option></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ERP (Établissement Recevant du Public)</label>
+            <select class="form-control" id="bien-erp" onchange="document.getElementById('bien-erp-details').style.display=this.value==='1'?'flex':'none'">
+              <option value="0">Non</option><option value="1">Oui</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row" id="bien-erp-details" style="display:none;">
+          <div class="form-group">
+            <label class="form-label">Catégorie ERP</label>
+            <select class="form-control" id="bien-erp-cat">
+              <option value="">—</option><option value="1">1ère cat. — &gt;1500 pers.</option><option value="2">2ème cat. — 701-1500</option>
+              <option value="3">3ème cat. — 301-700</option><option value="4">4ème cat. — ≤300</option><option value="5">5ème cat. — Petit ERP</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Accessibilité PMR</label>
+            <select class="form-control" id="bien-pmr">
+              <option value="0">Non conforme</option><option value="1">Conforme</option><option value="2">Ad'AP en cours</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <div class="form-group">
         <label class="form-label">Notes</label>
         <textarea class="form-control" id="bien-notes" rows="2" placeholder="Équipements, état général..."></textarea>
@@ -919,12 +961,19 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Type de bail</label>
-          <select class="form-control" id="contrat-type">
-            <option>Non meublé (3 ans)</option>
-            <option>Meublé (1 an)</option>
-            <option>Étudiant (9 mois)</option>
-            <option>Commercial (3/6/9)</option>
-            <option>Saisonnier</option>
+          <select class="form-control" id="contrat-type" onchange="onContratTypeChange()">
+            <optgroup label="Résidentiel">
+              <option value="non_meuble">Non meublé (3 ans)</option>
+              <option value="meuble">Meublé (1 an)</option>
+              <option value="etudiant">Étudiant (9 mois)</option>
+              <option value="saisonnier">Saisonnier</option>
+            </optgroup>
+            <optgroup label="Professionnel">
+              <option value="bail_commercial">Bail commercial (3/6/9)</option>
+              <option value="bail_professionnel">Bail professionnel (6 ans)</option>
+              <option value="bail_precaire">Bail précaire / dérogatoire</option>
+              <option value="bail_mixte">Bail mixte</option>
+            </optgroup>
           </select>
         </div>
         <div class="form-group">
@@ -963,11 +1012,29 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
           <input class="form-control" type="number" id="contrat-dg" placeholder="750">
         </div>
         <div class="form-group">
-          <label class="form-label">Révision IRL</label>
+          <label class="form-label">Indice de révision</label>
           <select class="form-control" id="contrat-irl">
-            <option value="1">Oui (annuelle)</option>
-            <option value="0">Non</option>
+            <option value="IRL">IRL — Résidentiel</option>
+            <option value="ILC">ILC — Loyers commerciaux</option>
+            <option value="ILAT">ILAT — Activités tertiaires</option>
+            <option value="ICC">ICC — Coût de construction</option>
+            <option value="0">Sans révision</option>
           </select>
+        </div>
+      </div>
+      <!-- Section bail professionnel -->
+      <div id="contrat-pro-section" style="display:none;background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--blue-bright);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Conditions bail professionnel</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Pas de porte / Droit d'entrée (€)</label><input class="form-control" type="number" id="contrat-pas-porte" placeholder="0" min="0"></div>
+          <div class="form-group"><label class="form-label">Franchise de loyer (mois)</label><input class="form-control" type="number" id="contrat-franchise" placeholder="0" min="0"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">TVA sur loyers</label>
+            <select class="form-control" id="contrat-tva"><option value="0">Non assujetti</option><option value="20">20 % (option TVA)</option><option value="8.5">8,5 % (DOM-TOM)</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Activité locataire</label><input class="form-control" id="contrat-activite" placeholder="Restauration, Cabinet…"></div>
         </div>
       </div>
       <div class="form-group">
@@ -1436,9 +1503,15 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Type d'état des lieux</label>
-          <select class="form-control" id="edl-type">
-            <option value="entree">Entrée dans les lieux</option>
-            <option value="sortie">Sortie des lieux</option>
+          <select class="form-control" id="edl-type" onchange="onEdlTypeChange()">
+            <optgroup label="Résidentiel">
+              <option value="entree">Entrée dans les lieux</option>
+              <option value="sortie">Sortie des lieux</option>
+            </optgroup>
+            <optgroup label="Professionnel">
+              <option value="pro_entree">Professionnel — Entrée</option>
+              <option value="pro_sortie">Professionnel — Sortie</option>
+            </optgroup>
           </select>
         </div>
         <div class="form-group">
@@ -1476,11 +1549,65 @@ tbody tr:hover{background:rgba(46,111,217,.04);}
           <input class="form-control" type="number" id="edl-cles" value="2">
         </div>
       </div>
-      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin:16px 0 10px;">
-        État des pièces (Décret 2016-382, art. 2)
+      <!-- Section résidentielle standard -->
+      <div id="edl-section-residentiel">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin:16px 0 10px;">
+          État des pièces (Décret 2016-382, art. 2)
+        </div>
+        <div id="edl-pieces-form"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addEdlPiece()">+ Ajouter une pièce</button>
       </div>
-      <div id="edl-pieces-form"></div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addEdlPiece()">+ Ajouter une pièce</button>
+      <!-- Section professionnelle EDL pro -->
+      <div id="edl-section-pro" style="display:none;">
+        <div style="font-size:12px;font-weight:600;color:var(--blue-bright);text-transform:uppercase;letter-spacing:1px;margin:16px 0 10px;">Sections — État des lieux professionnel</div>
+        <!-- 1. Façade / Vitrine / Enseigne -->
+        <div style="background:var(--navy);border-radius:8px;padding:14px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:10px;">Façade · Vitrine · Enseigne</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Façade</label><select class="form-control" id="edl-pro-facade"><option value="">—</option><option>Bon état</option><option>Usure normale</option><option>Dégradé</option><option>Mauvais état</option></select></div>
+            <div class="form-group"><label class="form-label">Vitrine</label><select class="form-control" id="edl-pro-vitrine"><option value="">—</option><option>Bon état</option><option>Usure normale</option><option>Dégradé</option><option>Non applicable</option></select></div>
+            <div class="form-group"><label class="form-label">Enseigne</label><select class="form-control" id="edl-pro-enseigne"><option value="">—</option><option>Présente — Bon état</option><option>Absente</option><option>Dégradée</option><option>Non applicable</option></select></div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observations façade</label><textarea class="form-control" id="edl-pro-facade-obs" rows="2" placeholder="Remarques…"></textarea></div>
+        </div>
+        <!-- 2. Installations techniques -->
+        <div style="background:var(--navy);border-radius:8px;padding:14px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:10px;">Installations techniques</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Électricité</label><select class="form-control" id="edl-pro-elec"><option value="">—</option><option>Conforme — Bon état</option><option>Usure normale</option><option>Non conforme</option><option>Défaillant</option></select></div>
+            <div class="form-group"><label class="form-label">CVC (chauffage/ventilation)</label><select class="form-control" id="edl-pro-cvc"><option value="">—</option><option>Bon état</option><option>Usure normale</option><option>Défaillant</option><option>Non applicable</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Sécurité incendie</label><select class="form-control" id="edl-pro-incendie"><option value="">—</option><option>Conforme — Bon état</option><option>À vérifier</option><option>Non conforme</option></select></div>
+            <div class="form-group"><label class="form-label">Alarme / Sécurité</label><select class="form-control" id="edl-pro-alarme"><option value="">—</option><option>Présente — Fonctionnelle</option><option>Absente</option><option>Défaillante</option></select></div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observations techniques</label><textarea class="form-control" id="edl-pro-tech-obs" rows="2" placeholder="Numéros de série, dates de contrôle…"></textarea></div>
+        </div>
+        <!-- 3. Réserves / Caves / Parking -->
+        <div style="background:var(--navy);border-radius:8px;padding:14px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:10px;">Réserves · Caves · Parking professionnel</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Réserves / Stockage</label><select class="form-control" id="edl-pro-reserves"><option value="">—</option><option>Bon état</option><option>Usure normale</option><option>Dégradé</option><option>Non applicable</option></select></div>
+            <div class="form-group"><label class="form-label">Caves</label><select class="form-control" id="edl-pro-caves"><option value="">—</option><option>Bon état</option><option>Humidité</option><option>Dégradé</option><option>Non applicable</option></select></div>
+            <div class="form-group"><label class="form-label">Parking / Accès</label><select class="form-control" id="edl-pro-parking"><option value="">—</option><option>Bon état</option><option>Usure normale</option><option>Dégradé</option><option>Non applicable</option></select></div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observations dépendances</label><textarea class="form-control" id="edl-pro-dep-obs" rows="2" placeholder="Nombre de places, accès, état du sol…"></textarea></div>
+        </div>
+        <!-- 4. Conformité ERP / PMR -->
+        <div style="background:var(--navy);border-radius:8px;padding:14px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:10px;">Conformité ERP · Accessibilité PMR</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Statut ERP</label><select class="form-control" id="edl-pro-erp-statut"><option value="">—</option><option>Conforme</option><option>Visite en cours</option><option>Non conforme</option><option>Non soumis ERP</option></select></div>
+            <div class="form-group"><label class="form-label">Dernière visite ERP</label><input class="form-control" type="date" id="edl-pro-erp-visite"></div>
+            <div class="form-group"><label class="form-label">Accessibilité PMR</label><select class="form-control" id="edl-pro-pmr"><option value="">—</option><option>Conforme</option><option>Ad'AP en cours</option><option>Non conforme</option><option>Non soumis PMR</option></select></div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observations conformité</label><textarea class="form-control" id="edl-pro-conf-obs" rows="2" placeholder="Numéros de rapports, recommandations…"></textarea></div>
+        </div>
+        <!-- Pièces/locaux (optionnel en pro) -->
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin:12px 0 8px;">Locaux intérieurs (optionnel)</div>
+        <div id="edl-pieces-form-pro"></div>
+        <button class="btn btn-ghost btn-sm" onclick="addEdlPiece('','pro')">+ Ajouter un local</button>
+      </div>
       <div class="form-group" style="margin-top:16px;">
         <label class="form-label">Observations générales</label>
         <textarea class="form-control" id="edl-observations" rows="3" placeholder="Remarques générales, présence du propriétaire/locataire, refus de signer..."></textarea>
@@ -1845,7 +1972,7 @@ function renderBiensGrid(biens){
   }).join(''):`<div class="empty-state" style="grid-column:1/-1;"><h3>Aucun bien</h3><p>Ajoutez votre premier bien immobilier.</p></div>`;
 }
 function filterBiens(){const q=document.getElementById('search-biens').value.toLowerCase();renderBiensGrid(DB.get('biens').filter(b=>b.nom.toLowerCase().includes(q)||b.ville.toLowerCase().includes(q)||b.ref.toLowerCase().includes(q)));}
-function openModalBien(){document.getElementById('bien-edit-id').value='';document.getElementById('modal-bien-title').textContent='Nouveau bien';['ref','nom','adresse','ville','cp','surface','pieces','valeur','notes'].forEach(f=>document.getElementById('bien-'+f).value='');document.getElementById('bien-type').value='Appartement';document.getElementById('bien-meuble').value='0';document.getElementById('bien-defisc').value='0';populatePropSelect();openModal('modal-bien');}
+function openModalBien(){document.getElementById('bien-edit-id').value='';document.getElementById('modal-bien-title').textContent='Nouveau bien';['ref','nom','adresse','ville','cp','surface','pieces','valeur','notes','activite','surface-com'].forEach(f=>{const el=document.getElementById('bien-'+f);if(el)el.value='';});document.getElementById('bien-type').value='Appartement';document.getElementById('bien-meuble').value='0';document.getElementById('bien-defisc').value='0';document.getElementById('bien-vitrine').value='0';document.getElementById('bien-erp').value='0';document.getElementById('bien-erp-cat').value='';document.getElementById('bien-pmr').value='0';document.getElementById('bien-pro-section').style.display='none';document.getElementById('bien-erp-details').style.display='none';populatePropSelect();openModal('modal-bien');}
 function openLocataireModal(){
   document.getElementById('loc-edit-id').value='';
   const t=document.getElementById('modal-loc-title');if(t)t.textContent='Nouveau locataire';
@@ -1897,11 +2024,13 @@ function fillEdlInfo(){
     if(sel){for(let i=0;i<sel.options.length;i++){if(+sel.options[i].value===contrat.locataireId){sel.selectedIndex=i;break;}}}
   }
 }
-function editBien(id){const b=DB.get('biens').find(x=>x.id===id);if(!b)return;populatePropSelect();document.getElementById('bien-edit-id').value=id;document.getElementById('modal-bien-title').textContent='Modifier le bien';['ref','nom','adresse','ville','cp','surface','pieces','valeur','notes'].forEach(f=>document.getElementById('bien-'+f).value=b[f]||'');document.getElementById('bien-type').value=b.type;document.getElementById('bien-meuble').value=b.meuble||0;document.getElementById('bien-defisc').value=b.defisc||0;if(b.proprietaireId)document.getElementById('bien-proprietaire').value=b.proprietaireId;openModal('modal-bien');}
+function editBien(id){const b=DB.get('biens').find(x=>x.id===id);if(!b)return;populatePropSelect();document.getElementById('bien-edit-id').value=id;document.getElementById('modal-bien-title').textContent='Modifier le bien';['ref','nom','adresse','ville','cp','surface','pieces','valeur','notes'].forEach(f=>document.getElementById('bien-'+f).value=b[f]||'');document.getElementById('bien-type').value=b.type;document.getElementById('bien-meuble').value=b.meuble||0;document.getElementById('bien-defisc').value=b.defisc||0;if(b.proprietaireId)document.getElementById('bien-proprietaire').value=b.proprietaireId;// Pro
+const isPro=isBienPro(b.type);document.getElementById('bien-pro-section').style.display=isPro?'block':'none';if(isPro){document.getElementById('bien-activite').value=b.activite||'';document.getElementById('bien-surface-com').value=b.surface_com||'';document.getElementById('bien-vitrine').value=b.vitrine||'0';document.getElementById('bien-erp').value=b.erp||'0';document.getElementById('bien-erp-details').style.display=b.erp==='1'?'flex':'none';document.getElementById('bien-erp-cat').value=b.erp_cat||'';document.getElementById('bien-pmr').value=b.pmr||'0';}
+openModal('modal-bien');}
 function saveBien(){
   const id=document.getElementById('bien-edit-id').value;
   const biens=DB.get('biens');
-  const obj={ref:document.getElementById('bien-ref').value,type:document.getElementById('bien-type').value,nom:document.getElementById('bien-nom').value,adresse:document.getElementById('bien-adresse').value,ville:document.getElementById('bien-ville').value,cp:document.getElementById('bien-cp').value,surface:+document.getElementById('bien-surface').value,pieces:+document.getElementById('bien-pieces').value,valeur:+document.getElementById('bien-valeur').value,meuble:+document.getElementById('bien-meuble').value,defisc:+document.getElementById('bien-defisc').value,notes:document.getElementById('bien-notes').value,proprietaireId:+document.getElementById('bien-proprietaire').value||null,statut:'vacant'};
+  const _btype=document.getElementById('bien-type').value;const _isPro=isBienPro(_btype);const obj={ref:document.getElementById('bien-ref').value,type:_btype,nom:document.getElementById('bien-nom').value,adresse:document.getElementById('bien-adresse').value,ville:document.getElementById('bien-ville').value,cp:document.getElementById('bien-cp').value,surface:+document.getElementById('bien-surface').value,pieces:+document.getElementById('bien-pieces').value,valeur:+document.getElementById('bien-valeur').value,meuble:+document.getElementById('bien-meuble').value,defisc:+document.getElementById('bien-defisc').value,notes:document.getElementById('bien-notes').value,proprietaireId:+document.getElementById('bien-proprietaire').value||null,statut:'vacant',categorie:_isPro?'professionnel':'residentiel'};if(_isPro){obj.activite=document.getElementById('bien-activite').value;obj.surface_com=+document.getElementById('bien-surface-com').value||0;obj.vitrine=document.getElementById('bien-vitrine').value;obj.erp=document.getElementById('bien-erp').value;obj.erp_cat=document.getElementById('bien-erp-cat').value;obj.pmr=document.getElementById('bien-pmr').value;}
   if(id){const i=biens.findIndex(b=>b.id===+id);if(i>=0){obj.id=+id;obj.statut=biens[i].statut;biens[i]=obj;}}else{obj.id=DB.nextId('biens');biens.push(obj);}
   DB.set('biens',biens);closeModal('modal-bien');renderBiens();
 }
@@ -1952,7 +2081,7 @@ function renderContrats(){
     return`<tr><td><span style="font-size:13px;font-weight:600;">${b?b.nom:'?'}</span><div style="font-size:11px;color:var(--text-muted);">${b?b.ref:''}</div></td><td>${l?locName(l):'?'}</td><td><span class="badge badge-info">${c.type}</span></td><td>${fmtDate(c.debut)}</td><td style="color:${expiring?'var(--warning)':'inherit'}">${c.fin?fmtDate(c.fin):'Indéterminée'}</td><td style="font-weight:600;color:var(--white);">${fmtE(c.loyer)}</td><td>${fmtE(c.charges)}</td><td>${fmtE(c.dg)}</td><td><span class="badge badge-${c.statut==='actif'?'success':'muted'}">${c.statut}</span></td><td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="editContrat(${c.id})">Éditer</button> <button class="btn btn-danger btn-sm" onclick="deleteContrat(${c.id})">×</button></td></tr>`;
   }).join(''):`<tr><td colspan="10"><div class="empty-state"><h3>Aucun contrat</h3></div></td></tr>`;
 }
-function editContrat(id){const c=DB.get('contrats').find(x=>x.id===id);if(!c)return;document.getElementById('contrat-edit-id').value=id;document.getElementById('modal-contrat-title').textContent='Modifier le contrat';document.getElementById('contrat-bien').value=c.bienId;document.getElementById('contrat-locataire').value=c.locataireId;document.getElementById('contrat-type').value=c.type;document.getElementById('contrat-debut').value=c.debut;document.getElementById('contrat-fin').value=c.fin||'';document.getElementById('contrat-jour').value=c.jour;document.getElementById('contrat-loyer').value=c.loyer;document.getElementById('contrat-charges').value=c.charges;document.getElementById('contrat-dg').value=c.dg;document.getElementById('contrat-irl').value=c.irl;document.getElementById('contrat-notes').value=c.notes||'';openModal('modal-contrat');}
+function editContrat(id){const c=DB.get('contrats').find(x=>x.id===id);if(!c)return;document.getElementById('contrat-edit-id').value=id;document.getElementById('modal-contrat-title').textContent='Modifier le contrat';document.getElementById('contrat-bien').value=c.bienId;document.getElementById('contrat-locataire').value=c.locataireId;document.getElementById('contrat-type').value=c.type;document.getElementById('contrat-debut').value=c.debut;document.getElementById('contrat-fin').value=c.fin||'';document.getElementById('contrat-jour').value=c.jour;document.getElementById('contrat-loyer').value=c.loyer;document.getElementById('contrat-charges').value=c.charges;document.getElementById('contrat-dg').value=c.dg;document.getElementById('contrat-irl').value=c.irl||'IRL';document.getElementById('contrat-notes').value=c.notes||'';const isPro=['bail_commercial','bail_professionnel','bail_precaire','bail_mixte'].includes(c.type);document.getElementById('contrat-pro-section').style.display=isPro?'block':'none';if(isPro){document.getElementById('contrat-pas-porte').value=c.pasPorte||'';document.getElementById('contrat-franchise').value=c.franchise||'';document.getElementById('contrat-tva').value=c.tva||'0';document.getElementById('contrat-activite').value=c.activite||'';}openModal('modal-contrat');}
 function saveContrat(){
   const id=document.getElementById('contrat-edit-id').value;
   const contrats=DB.get('contrats');
@@ -1960,18 +2089,13 @@ function saveContrat(){
   const dg=+document.getElementById('contrat-dg').value;
   const type=document.getElementById('contrat-type').value;
   // LOI ALUR — Vérification dépôt de garantie (art. 22 loi 89-462 modifiée)
-  const isM=type.includes('Meublé')&&!type.includes('Non');
-  const maxDG=isM?loyer*2:loyer*1;
-  if(dg>maxDG){alert(`ALUR — Dépôt de garantie non conforme.\nMaximum légal : ${fmtE(maxDG)} (${isM?'2 mois HC pour meublé':'1 mois HC pour non meublé'}).\nArt. 22 de la loi n° 89-462 modifiée par la loi ALUR.`);return;}
-  // LOI ALUR — Durée minimale bail (art. 10 loi 89-462)
+  const isPro=['bail_commercial','bail_professionnel','bail_precaire','bail_mixte'].includes(type);
+  if(!isPro){const isM=type==='meuble';const maxDG=isM?loyer*2:loyer*1;if(dg>maxDG){alert('ALUR — Dépôt de garantie non conforme.\nMaximum légal : '+fmtE(maxDG)+' ('+(isM?'2 mois HC pour meublé':'1 mois HC pour non meublé')+').\nArt. 22 de la loi n° 89-462 modifiée par la loi ALUR.');return;}}
   const debut=document.getElementById('contrat-debut').value;
   const fin=document.getElementById('contrat-fin').value;
-  if(fin&&debut){
-    const mois=Math.round((new Date(fin)-new Date(debut))/2629800000);
-    const minMois=type.includes('Étudiant')?9:isM?12:36;
-    if(mois<minMois&&!type.includes('Saisonnier')){if(!confirm(`ALUR — Durée du bail (${mois} mois) inférieure au minimum légal de ${minMois} mois pour ce type.\nConfirmer quand même ?`))return;}
-  }
-  const obj={bienId:+document.getElementById('contrat-bien').value,locataireId:+document.getElementById('contrat-locataire').value,type,debut,fin,jour:+document.getElementById('contrat-jour').value,loyer,charges:+document.getElementById('contrat-charges').value,dg,irl:+document.getElementById('contrat-irl').value,notes:document.getElementById('contrat-notes').value,statut:'actif'};
+  if(!isPro&&fin&&debut){const mois=Math.round((new Date(fin)-new Date(debut))/2629800000);const isM=type==='meuble';const minMois=type==='etudiant'?9:isM?12:36;if(mois<minMois&&type!=='saisonnier'){if(!confirm('ALUR — Durée du bail ('+mois+' mois) inférieure au minimum légal de '+minMois+' mois pour ce type.\nConfirmer quand même ?'))return;}}
+  const obj={bienId:+document.getElementById('contrat-bien').value,locataireId:+document.getElementById('contrat-locataire').value,type,debut,fin,jour:+document.getElementById('contrat-jour').value,loyer,charges:+document.getElementById('contrat-charges').value,dg,irl:document.getElementById('contrat-irl').value,notes:document.getElementById('contrat-notes').value,statut:'actif',categorie:isPro?'professionnel':'residentiel'};
+  if(isPro){obj.pasPorte=+document.getElementById('contrat-pas-porte').value||0;obj.franchise=+document.getElementById('contrat-franchise').value||0;obj.tva=document.getElementById('contrat-tva').value;obj.activite=document.getElementById('contrat-activite').value;}
   if(id){const i=contrats.findIndex(c=>c.id===+id);if(i>=0){obj.id=+id;contrats[i]=obj;}}else{obj.id=DB.nextId('contrats');contrats.push(obj);}
   const biens=DB.get('biens');const bi=biens.findIndex(b=>b.id===obj.bienId);if(bi>=0){biens[bi].statut='loue';DB.set('biens',biens);}
   DB.set('contrats',contrats);closeModal('modal-contrat');renderContrats();
@@ -3015,6 +3139,7 @@ function openEdlModal(){
   edlPiecesCount=0;
   document.getElementById('edl-pieces-form').innerHTML='';
   EDL_PIECES_DEFAUT.forEach(p=>addEdlPiece(p));
+  onEdlTypeChange();
   openModal('modal-edl');
 }
 function addEdlPiece(piece=''){
@@ -3071,7 +3196,9 @@ function addEdlPiece(piece=''){
       </div>
       <button onclick="document.getElementById('edl-piece-${n}').remove()" style="background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;margin-top:20px;padding:0 4px;">×</button>
     </div>`;
-  document.getElementById('edl-pieces-form').appendChild(div);
+  const containerId=ctx==='pro'?'edl-pieces-form-pro':'edl-pieces-form';
+  const container=document.getElementById(containerId);
+  if(container)container.appendChild(div);
 }
 function collectEdlPieces(){
   const pieces=[];
@@ -3086,9 +3213,11 @@ function collectEdlPieces(){
 function saveEdl(){
   const pieces=collectEdlPieces();
   const edls=DB.get('edls')||[];
+  const _edlType=document.getElementById('edl-type').value;
+  const _isProEdl=['pro_entree','pro_sortie'].includes(_edlType);
   const obj={
     id:DB.nextId('edls')||edls.length+1,
-    type:document.getElementById('edl-type').value,
+    type:_edlType,
     date:document.getElementById('edl-date').value,
     heure:document.getElementById('edl-heure').value,
     bienId:+document.getElementById('edl-bien').value,
@@ -3098,8 +3227,24 @@ function saveEdl(){
     cles:document.getElementById('edl-cles').value,
     observations:document.getElementById('edl-observations').value,
     reserves:document.getElementById('edl-reserves').value,
-    pieces,statut:'signe'
+    pieces,statut:'signe',categorie:_isProEdl?'professionnel':'residentiel'
   };
+  if(_isProEdl){
+    obj.pro={
+      facade:{etat:document.getElementById('edl-pro-facade').value,obs:document.getElementById('edl-pro-facade-obs').value},
+      vitrine:{etat:document.getElementById('edl-pro-vitrine').value},
+      enseigne:{etat:document.getElementById('edl-pro-enseigne').value},
+      elec:{etat:document.getElementById('edl-pro-elec').value},
+      cvc:{etat:document.getElementById('edl-pro-cvc').value},
+      incendie:{etat:document.getElementById('edl-pro-incendie').value},
+      alarme:{etat:document.getElementById('edl-pro-alarme').value,obs:document.getElementById('edl-pro-tech-obs').value},
+      reserves:{etat:document.getElementById('edl-pro-reserves').value},
+      caves:{etat:document.getElementById('edl-pro-caves').value},
+      parking:{etat:document.getElementById('edl-pro-parking').value,obs:document.getElementById('edl-pro-dep-obs').value},
+      erp:{statut:document.getElementById('edl-pro-erp-statut').value,visite:document.getElementById('edl-pro-erp-visite').value},
+      pmr:{statut:document.getElementById('edl-pro-pmr').value,obs:document.getElementById('edl-pro-conf-obs').value}
+    };
+  }
   const editId=document.getElementById('edl-edit-id').value;
   if(editId){
     const idx=edls.findIndex(e=>e.id===+editId);
@@ -3128,6 +3273,17 @@ function editEdl(id){
   document.getElementById('edl-locataire').innerHTML=locs.map(l=>`<option value="${l.id}"${l.id===e.locataireId?' selected':''}>${l.prenom} ${l.nom}</option>`).join('');
   edlPiecesCount=0;
   document.getElementById('edl-pieces-form').innerHTML='';
+  const _editProEdl=['pro_entree','pro_sortie'].includes(e.type||'');
+  if(_editProEdl&&e.pro){
+    const p=e.pro;
+    ['facade','vitrine','enseigne','elec','cvc','incendie','alarme','reserves','caves','parking'].forEach(k=>{const el=document.getElementById('edl-pro-'+k);if(el&&p[k])el.value=p[k].etat||'';});
+    if(p.facade)document.getElementById('edl-pro-facade-obs').value=p.facade.obs||'';
+    if(p.alarme)document.getElementById('edl-pro-tech-obs').value=p.alarme.obs||'';
+    if(p.parking)document.getElementById('edl-pro-dep-obs').value=p.parking.obs||'';
+    if(p.erp){document.getElementById('edl-pro-erp-statut').value=p.erp.statut||'';document.getElementById('edl-pro-erp-visite').value=p.erp.visite||'';}
+    if(p.pmr){document.getElementById('edl-pro-pmr').value=p.pmr.statut||'';document.getElementById('edl-pro-conf-obs').value=p.pmr.obs||'';}
+  }
+  onEdlTypeChange();
   (e.pieces||[]).forEach(p=>addEdlPiece(p));
   openModal('modal-edl');
 }
@@ -4014,6 +4170,36 @@ function confirmerModeBien(){
   document.getElementById('modal-mode-bien').style.display='none';
   populateBienSaisonSelects();renderBiensSaison();
   if(document.getElementById('section-biens')?.style.display!=='none')renderBiens();
+}
+
+
+// ── HANDLERS LOCAUX PROFESSIONNELS ───────────────────────────────────────
+const PRO_TYPES=['Bureau','Cabinet','Commerce','Boutique','Entrepôt',"Local d'activité",'Local mixte','Terrain Pro'];
+function isBienPro(type){return PRO_TYPES.includes(type);}
+
+function onBienTypeChange(){
+  const t=document.getElementById('bien-type').value;
+  const isPro=isBienPro(t);
+  document.getElementById('bien-pro-section').style.display=isPro?'block':'none';
+  if(!isPro){document.getElementById('bien-erp-details').style.display='none';}
+}
+function onContratTypeChange(){
+  const t=document.getElementById('contrat-type').value;
+  const isPro=['bail_commercial','bail_professionnel','bail_precaire','bail_mixte'].includes(t);
+  document.getElementById('contrat-pro-section').style.display=isPro?'block':'none';
+  const irl=document.getElementById('contrat-irl');
+  if(isPro){
+    const irlMap={bail_commercial:'ILC',bail_professionnel:'ICC',bail_precaire:'0',bail_mixte:'IRL'};
+    irl.value=irlMap[t]||'ILC';
+  } else {
+    irl.value='IRL';
+  }
+}
+function onEdlTypeChange(){
+  const t=document.getElementById('edl-type').value;
+  const isPro=['pro_entree','pro_sortie'].includes(t);
+  document.getElementById('edl-section-residentiel').style.display=isPro?'none':'block';
+  document.getElementById('edl-section-pro').style.display=isPro?'block':'none';
 }
 
 // ── MODULE PHOTOS ─────────────────────────────────────────────────────────
